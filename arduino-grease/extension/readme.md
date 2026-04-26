@@ -15,6 +15,13 @@ Arduino tooling + a bundled local MCP server for **agentic debugging** inside VS
 - Auto-selects a target if exactly one recognized board is present; otherwise prompts you to pick.
 - Adds Activity Bar actions for Verify/Upload/Serial Monitor/Serial Plotter/Examples/Managers/Board Template, to create an user friendly environment.
 
+### Examples of things you can do
+
+Tell an AI agent to:
+-Move your servo motor in a sinusoidal motion of 90 degrees range, every 5 seconds.
+-Come up with a nice filter for a specific kind of noisy sensor you are using. 
+-Deploy iterative versions of your code, tuning specific variables at every trial.
+
 ### Inspiration
 
 Most AI tooling lives in a sandbox. Robotics doesn’t.
