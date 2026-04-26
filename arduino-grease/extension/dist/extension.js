@@ -1495,7 +1495,7 @@ var ArduinoToolbarViewProvider = class {
 
       <div class="tab-panel" id="panel-managers">
         <div class="mgr-header">
-          <span class="mgr-label"><a class="c-coral" href="#" onclick="switchTab('board');return false" style="margin-right:4px">||R||</a>mngrs</span>
+          <span class="mgr-label"><a class="c-coral" href="#" onclick="switchTab('board');return false" style="margin-right:4px">||R||</a>Mngrs</span>
           <a class="c-std" href="#" onclick="cmd('arduinoMcp.openManagers');return false">||Update indexes||</a>
         </div>
         <div class="mgr-section">
@@ -1547,28 +1547,21 @@ var ArduinoToolbarViewProvider = class {
       <div class="tab-panel" id="panel-prompt">
         <div class="mgr-header">
           <span class="mgr-label"><a class="c-coral" href="#" onclick="switchTab('board');return false" style="margin-right:4px">||R||</a>AI Prompt Template</span>
-          <a class="c-std" href="#" onclick="cmd('arduinoMcp.openBoardTemplate');return false">||Update indexes||</a>
         </div>
         <div class="mgr-section">
-          <div class="mgr-section-title">Library</div>
-          <div class="mgr-card">
-            <div class="mgr-top-row">
-              <a class="c-std" href="#" onclick="cmd('arduinoMcp.openBoardTemplate');return false">||List installed||</a>
-              <a class="c-green" href="#" onclick="cmd('arduinoMcp.openBoardTemplate');return false">||Install selected||</a>
-            </div>
-            <input class="libQuery" placeholder="wire, servo, wifi..." oninput="searchLibs(this.value)" onkeydown="if(event.key==='Enter')searchLibs(this.value)" />
-            <div class="mgr-list libsList"></div>
+          <div style="font-size: 10px; color: var(--muted); margin-bottom: 8px; line-height: 1.4;">
+            Creating your SKILL.md . You can modify the following SKILL.md file to better tune/guide the programming of your robot.
           </div>
+          <a class="c-teal" href="#" onclick="cmd('arduinoMcp.openSkillFile');return false">||Access SKILL.md||</a>
         </div>
-        <div class="mgr-section">
-          <div class="mgr-section-title">Board</div>
-          <div class="mgr-card">
-            <div class="mgr-top-row">
-              <a class="c-std" href="#" onclick="cmd('arduinoMcp.openBoardTemplate');return false">||Choose as target||</a>
-              <a class="c-amber" href="#" onclick="cmd('arduinoMcp.openBoardTemplate');return false">||Upload firmware||</a>
-            </div>
-            <input class="boardQuery" placeholder="arduino, esp32, rp2040..." oninput="searchBoards(this.value)" onkeydown="if(event.key==='Enter')searchBoards(this.value)" />
-            <div class="mgr-list boardsList"></div>
+        <div class="mgr-section" style="margin-top: 16px;">
+          <div style="font-size: 10px; color: var(--muted); margin-bottom: 8px; line-height: 1.4;">
+            Generate below a prompt for your IDE using the Skill that you built, already embedded to your MCP.
+          </div>
+          <div class="mgr-card" style="padding: 0;">
+            <textarea id="userObjective" placeholder="Enter your objectives here..." 
+              style="width: 100%; background: #050d07; color: var(--ink); border: 1px solid var(--stroke); border-radius: 4px; padding: 8px; font-size: 11px; font-family: var(--mono); min-height: 80px; resize: vertical;"
+              onclick="generatePromptToClipboard()"></textarea>
           </div>
         </div>
       </div>
@@ -1580,6 +1573,14 @@ var ArduinoToolbarViewProvider = class {
 const vscode = acquireVsCodeApi();
 
 function cmd(command) { vscode.postMessage({ type: 'cmd', command: command }); }
+
+function generatePromptToClipboard() {
+  const objective = document.getElementById('userObjective').value || 'no objective specified';
+  const prompt = `Use the Arduino Grease MCP server to fulfill the following objective: ${objective}. Refer to SKILL.md for specific robot instructions.`;
+  navigator.clipboard.writeText(prompt).then(() => {
+    alert('Prompt saved to clipboard!');
+  });
+}
 
 function switchTab(panel) {
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
@@ -1627,8 +1628,8 @@ function drawRain(){
 
   function drop(d,x){
     const dx=x-mouseX,dy=d.y-mouseY,dist=Math.sqrt(dx*dx+dy*dy);
-    const inRepel = (st === 'thrust' ? dist < 120 : dist < 60);
-    const inHalt = (st === 'thrust' && dist < 60);
+    const inRepel = (st === 'thrust' ? dist < 40 : dist < 60);
+    const inHalt = (st === 'thrust' && dist < 10);
     
     if(inHalt && !d.halted){
       d.halted = true;
@@ -2255,6 +2256,16 @@ async function activate(context) {
     vscode8.commands.registerCommand("arduinoMcp.verify", async () => {
       const res = await runVerifyOnly();
       toolbar.view?.webview.postMessage({ type: 'verifyResult', success: res.ok === true });
+    }),
+    vscode8.commands.registerCommand("arduinoMcp.openSkillFile", async () => {
+      const wf = vscode8.workspace.workspaceFolders?.[0];
+      if (!wf) return;
+      const skillPath = vscode8.Uri.joinPath(wf.uri, "SKILL.md");
+      if (!fs3.existsSync(skillPath.fsPath)) {
+        fs3.writeFileSync(skillPath.fsPath, "# Robot Skill\n\nDefine robot behaviors here.");
+      }
+      const doc = await vscode8.workspace.openTextDocument(skillPath);
+      await vscode8.window.showTextDocument(doc);
     }),
     vscode8.commands.registerCommand("arduinoMcp.upload", async () => {
       const ok = await runUpload({ verifyFirst: true });

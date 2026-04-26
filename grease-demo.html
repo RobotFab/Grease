@@ -1,0 +1,125 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Arduino Grease Panel Demo</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root { --muted: #4a9960; --ink: #c8ffd8; --bg: #080e0a; --panel: #0b120d; --stroke: #1a3322; --mono: Consolas, Menlo, Monaco, 'Courier New', monospace; }
+    body { background: var(--bg); color: var(--ink); font-family: var(--mono); font-size: 11px; height: 100vh; overflow: hidden; display: flex; justify-content: center; align-items: flex-start; padding-top: 20px; }
+    .panel-area { width: 320px; min-height: 600px; display: flex; flex-direction: column; background: var(--bg); border: 1px solid var(--stroke); position: relative; border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+    canvas.rain { position: absolute; top: 0; left: 0; right: 0; bottom: 0; pointer-events: none; z-index: 0; }
+    .panel-content { position: relative; z-index: 1; padding: 10px 10px 4px; overflow-y: auto; height: 100%; }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+    a { font-family: var(--mono); font-size: 11px; text-decoration: none; cursor: pointer; color: var(--ink); }
+    a:hover { text-decoration: underline; }
+    .ascii-line { font-family: var(--mono); font-size: 11px; color: var(--ink); white-space: pre; line-height: 1.6; display: block; }
+    .dim { color: var(--muted); }
+    .actions-wrap { margin-top: 6px; }
+    .act-row { padding: 1px 0 1px 2px; font-family: var(--mono); font-size: 10px; line-height: 1.8; white-space: pre; }
+    .c-teal { color: #4ecdc4; } .c-coral { color: #ff6b6b; } .c-blue { color: #74b9ff; }
+    .server-section { margin-top: 12px; font-family: var(--mono); font-size: 11px; color: var(--ink); }
+    .server-line { display: flex; align-items: center; gap: 6px; margin-top: 3px; }
+    .sblock { font-size: 16px; line-height: 1; color: #49c06b; }
+    .logo-area { margin-top: 12px; }
+    .logo-img { display: block; width: 132px; opacity: 0.1; filter: brightness(2) saturate(0.3); }
+    .mgr-header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 10px; }
+    .mgr-label { color: var(--muted); font-size: 10px; }
+    .mgr-section { margin-bottom: 10px; }
+    .mgr-card { border: 1px solid var(--stroke); background: var(--panel); border-radius: 6px; padding: 8px; }
+    textarea { width: 100%; background: #050d07; color: var(--ink); border: 1px solid var(--stroke); border-radius: 4px; padding: 8px; font-size: 11px; font-family: var(--mono); min-height: 80px; margin-top: 5px; }
+  </style>
+</head>
+<body>
+  <div class="panel-area" id="panelArea">
+    <canvas class="rain" id="rainCanvas"></canvas>
+    <div class="panel-content">
+      <div class="tab-panel active" id="panel-board">
+        <span class="ascii-line"><span class="dim">+------------ -  -   +</span></span>
+        <span class="ascii-line"><span class="dim">| </span>Ports and Boards</span>
+        <span class="ascii-line"><span class="dim">|</span></span>
+        <span class="ascii-line"><span class="dim">| Port:     </span><a class="dim" href="#">||R||</a></span>
+        <span class="ascii-line"><span class="dim">| </span>/dev/cu.usbmodem1101</span>
+        <span class="ascii-line"><span class="dim">| Board:</span></span>
+        <span class="ascii-line"><span class="dim">| </span>Arduino Nano 33 IoT</span>
+        <span class="ascii-line"><span class="dim">+   -   -  - --------+</span></span>
+        <div class="actions-wrap">
+          <div class="act-row"> <a class="c-teal" href="#">||Start Sketch||</a></div>
+          <div class="act-row"> <a class="c-coral" href="#">||Upload||</a></div>
+          <div class="act-row"> <a class="c-teal" href="#">||Verify||</a></div>
+          <div class="act-row"> <a class="c-blue" href="#">||Serial||</a></div>
+          <div class="act-row"> <a class="c-teal" href="#">||Plotter||</a></div>
+          <div class="act-row"> <a class="c-blue" href="#">||Examples||</a></div>
+          <div class="act-row"> <a class="c-teal" href="#">||Mngrs||</a></div>
+          <div class="act-row"> <a class="c-teal" href="#" onclick="showPrompt()">||AI Prompt||</a></div>
+        </div>
+        <div class="server-section">
+          AI Tether
+          <div class="server-line">
+            <span class="sblock">&#x2588;</span>
+            <span style="color:var(--muted);font-size:10px">running</span>
+          </div>
+        </div>
+        <div class="logo-area">
+          <div style="font-size: 20px; font-weight: bold; color: #5bc8f5; opacity: 0.3;">GREASE</div>
+        </div>
+      </div>
+
+      <div class="tab-panel" id="panel-prompt">
+        <div class="mgr-header">
+          <span class="mgr-label"><a class="c-coral" href="#" onclick="showBoard()">||R||</a>AI Prompt Template</span>
+        </div>
+        <div class="mgr-section">
+          <div style="font-size: 10px; color: var(--muted); margin-bottom: 8px; line-height: 1.4;">
+            Creating your SKILL.md . You can modify the following SKILL.md file to better tune/guide the programming of your robot.
+          </div>
+          <a class="c-teal" href="#">||Access SKILL.md||</a>
+        </div>
+        <div class="mgr-section" style="margin-top: 16px;">
+          <div style="font-size: 10px; color: var(--muted); margin-bottom: 8px; line-height: 1.4;">
+            Generate below a prompt for your IDE using the Skill that you built, already embedded to your MCP.
+          </div>
+          <div class="mgr-card" style="padding: 0;">
+            <textarea placeholder="Enter your objectives here..." onclick="alert('Prompt saved to clipboard! (Demo)')"></textarea>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function showPrompt() {
+      document.getElementById('panel-board').classList.remove('active');
+      document.getElementById('panel-prompt').classList.add('active');
+    }
+    function showBoard() {
+      document.getElementById('panel-prompt').classList.remove('active');
+      document.getElementById('panel-board').classList.add('active');
+    }
+
+    const canvas = document.getElementById('rainCanvas');
+    const ctx = canvas.getContext('2d');
+    let W = canvas.width = 320;
+    let H = canvas.height = 600;
+    const chars = '01'.split('');
+    const fontSize = 12;
+    const columns = W / fontSize;
+    const drops = Array(Math.floor(columns)).fill(1);
+
+    function draw() {
+      ctx.fillStyle = 'rgba(8, 14, 10, 0.1)';
+      ctx.fillRect(0, 0, W, H);
+      ctx.fillStyle = '#0f4';
+      ctx.font = fontSize + 'px monospace';
+      for (let i = 0; i < drops.length; i++) {
+        const text = chars[Math.floor(Math.random() * chars.length)];
+        ctx.fillText(text, i * fontSize, drops[i] * fontSize);
+        if (drops[i] * fontSize > H && Math.random() > 0.975) drops[i] = 0;
+        drops[i]++;
+      }
+    }
+    setInterval(draw, 33);
+  </script>
+</body>
+</html>
