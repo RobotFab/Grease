@@ -1645,7 +1645,7 @@ function drawRain(){
       bo=(inRepel?0.40:0.08) + d.o + thrustOpacityBoost;
       ho=(inRepel?0.80:0.15) + d.o + thrustOpacityBoost;
       fz=inRepel?13:12;
-      sp=inHalt ? (3+(10-dist)*0.08*3) * thrustSpeedMult : (inRepel?(3+(40-dist)*0.08):2.8) * thrustSpeedMult;
+      sp=inHalt ? -((10-dist)*0.8) * thrustSpeedMult : (inRepel?(3+(40-dist)*0.08):2.8) * thrustSpeedMult;
     }
     else{bo=Math.min(1,(inRepel?0.40:0.03)+d.o); ho=Math.min(1,(inRepel?0.80:0.10)+d.o); fz=inRepel?13:12; sp=inRepel?(3+(60-dist)*0.08):(1.2+Math.random()*0.6);}
     
