@@ -1645,7 +1645,7 @@ function drawRain(){
       bo=(inRepel?0.40:0.08) + d.o + thrustOpacityBoost;
       ho=(inRepel?0.80:0.15) + d.o + thrustOpacityBoost;
       fz=inRepel?13:12;
-      sp=inHalt?0:(inRepel?(3+(60-dist)*0.08):2.8) * thrustSpeedMult;
+      sp=inHalt ? (3+(10-dist)*0.08*3) * thrustSpeedMult : (inRepel?(3+(40-dist)*0.08):2.8) * thrustSpeedMult;
     }
     else{bo=Math.min(1,(inRepel?0.40:0.03)+d.o); ho=Math.min(1,(inRepel?0.80:0.10)+d.o); fz=inRepel?13:12; sp=inRepel?(3+(60-dist)*0.08):(1.2+Math.random()*0.6);}
     
@@ -1728,7 +1728,7 @@ window.addEventListener('message', event => {
   } else if (msg.type === 'verifyResult') {
     if(msg.success && rainState === 'thrust') {
       thrustOpacityBoost += 0.1;
-      thrustSpeedMult *= (1.3 + Math.random() * 1.2);
+      thrustSpeedMult *= 3;
     }
   } else if (msg.type === 'examples') {
     exRows = Array.isArray(msg.rows) ? msg.rows : [];
