@@ -740,7 +740,7 @@ var ExamplesPanel = class {
           for (const sd of subdirs) {
             rows.push({ library: "Filtered analog", example: sd.name, fullPath: path3.join(exDir, sd.name) });
           }
-        } catch(e) {}
+        } catch (e) { }
       }
     }
     return uniqueRows(rows);
@@ -1408,7 +1408,7 @@ var ArduinoToolbarViewProvider = class {
         try {
           const files = fs2.readdirSync(dir).filter(f => f.toLowerCase().endsWith(".ino"));
           if (files.length > 0) inoFile = path3.join(dir, files[0]);
-        } catch {}
+        } catch { }
       }
       if (!inoFile) { vscode7.window.showWarningMessage("Arduino Grease: No .ino file found in this example."); return; }
       const doc = await vscode7.workspace.openTextDocument(vscode7.Uri.file(inoFile));
@@ -1555,25 +1555,10 @@ var ArduinoToolbarViewProvider = class {
           <a class="c-std" href="#" onclick="cmd('arduinoMcp.openBoardTemplate');return false">||Update indexes||</a>
         </div>
         <div class="mgr-section">
-          <div class="mgr-section-title">Library</div>
           <div class="mgr-card">
             <div class="mgr-top-row">
-              <a class="c-std" href="#" onclick="cmd('arduinoMcp.openBoardTemplate');return false">||List installed||</a>
-              <a class="c-green" href="#" onclick="cmd('arduinoMcp.openBoardTemplate');return false">||Install selected||</a>
+              <a class="c-std" href="#" onclick="cmd('arduinoMcp.openBoardTemplate');return false">Add text here!</a>
             </div>
-            <input class="libQuery" placeholder="wire, servo, wifi..." oninput="searchLibs(this.value)" onkeydown="if(event.key==='Enter')searchLibs(this.value)" />
-            <div class="mgr-list libsList"></div>
-          </div>
-        </div>
-        <div class="mgr-section">
-          <div class="mgr-section-title">Board</div>
-          <div class="mgr-card">
-            <div class="mgr-top-row">
-              <a class="c-std" href="#" onclick="cmd('arduinoMcp.openBoardTemplate');return false">||Choose as target||</a>
-              <a class="c-amber" href="#" onclick="cmd('arduinoMcp.openBoardTemplate');return false">||Upload firmware||</a>
-            </div>
-            <input class="boardQuery" placeholder="arduino, esp32, rp2040..." oninput="searchBoards(this.value)" onkeydown="if(event.key==='Enter')searchBoards(this.value)" />
-            <div class="mgr-list boardsList"></div>
           </div>
         </div>
       </div>
