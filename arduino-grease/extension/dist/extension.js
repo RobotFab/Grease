@@ -1557,7 +1557,27 @@ var ArduinoToolbarViewProvider = class {
         <div class="mgr-section">
           <div class="mgr-card">
             <div class="mgr-top-row">
-              <a class="c-std" href="#" onclick="cmd('arduinoMcp.openBoardTemplate');return false">Add text here!</a>
+              <a class="c-std" href="#" onclick="cmd('arduinoMcp.openBoardTemplate');return false">Add  
+              
+              Your AI needs structure!
+
+If your AI Tether is active, your Prompt is already "greased". Try to use the following XMLs to emphasize goals, hardware, mechanical components or control:
+
+Write a program to <goal> stack 5 cups </goal>. I am using <hw> 2 servo motors and one temperature sensor with 3 pins</hw>.
+ <mech> a 2 inch whe
+For example, when mentioning hardware, 
+</text>
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              !</a>
             </div>
           </div>
         </div>
@@ -1618,7 +1638,7 @@ function drawRain(){
   function drop(d,x){
     const dx=x-mouseX,dy=d.y-mouseY,dist=Math.sqrt(dx*dx+dy*dy);
     const inRepel = (st === 'thrust' ? dist < 40 : dist < 60);
-    const inHalt = (st === 'thrust' && dist < 10);
+    const inHalt = (st === 'thrust' && dist < 15);
     
     if(inHalt && !d.halted){
       d.halted = true;
