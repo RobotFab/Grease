@@ -2,7 +2,7 @@
   "name": "arduino-grease",
   "displayName": "Arduino Grease",
   "publisher": "RobotFab",
-  "version": "0.3.0",
+  "version": "0.2.1",
   "description": "Arduino tooling + MCP server for agentic debugging inside VS Code, Cursor, and Antigravity. This package was developed by Andre Rosendo.",
   "main": "dist/extension.js",
   "icon": "icon.png",

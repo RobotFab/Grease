@@ -966,12 +966,9 @@ var ManagersPanel = class {
     try {
       if (msg.type === "updateIndexes") {
         this.output.appendLine("[Mngrs] Updating board and library indexes...");
-        const res1 = await runArduinoCli(["core", "update-index"]);
+        const res1 = await runArduinoCli(["update"]);
         this.output.appendLine(res1.stdout);
         this.output.appendLine(res1.stderr);
-        const res2 = await runArduinoCli(["lib", "update-index"]);
-        this.output.appendLine(res2.stdout);
-        this.output.appendLine(res2.stderr);
         const boards = await runArduinoCli(["core", "list", "--json"]);
         if (boards.success) {
           const rows = parseInstalledBoards(boards.stdout);
@@ -1004,6 +1001,10 @@ var ManagersPanel = class {
         this.output.appendLine(`[Mngrs] Upload firmware to target ${fqbn}...`);
         await this.actions.uploadFirmwareToTarget(fqbn);
       } else if (msg.type === "libList") {
+        this.output.appendLine("[Mngrs] Updating library index...");
+        const upd = await runArduinoCli(["lib", "update-index"]);
+        this.output.appendLine(upd.stdout);
+        this.output.appendLine(upd.stderr);
         const res = await runArduinoCli(["lib", "list", "--json"]);
         if (!res.success) {
           post({ type: "error", error: res.stderr || res.stdout });
@@ -1113,6 +1114,12 @@ var ManagersPanel = class {
           <a class="c-std" id="libSearch" href="#" onclick="event.preventDefault()">||Search||</a>
         </div>
         <div class="list" id="libsList"></div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top: 9px;">
+      <div class="muted" style="font-size: 11px;">
+        Install a library from github with the terminal commands, such as 'arduino-cli lib install --git-url https://github.com/arduino-libraries/WiFi101.git'
       </div>
     </div>
 
@@ -1347,10 +1354,14 @@ var BoardTemplatePanel = class {
 // src/views/toolbarView.ts
 var vscode7 = __toESM(require("vscode"));
 var ArduinoToolbarViewProvider = class {
-  constructor(context) {
+  constructor(context, output, actions) {
     this.context = context;
+    this.output = output;
+    this.actions = actions;
   }
   context;
+  output;
+  actions;
   static viewType = "arduinoMcp.toolbar";
   view = null;
   state = {
@@ -1413,6 +1424,85 @@ var ArduinoToolbarViewProvider = class {
       if (!inoFile) { vscode7.window.showWarningMessage("Arduino Grease: No .ino file found in this example."); return; }
       const doc = await vscode7.workspace.openTextDocument(vscode7.Uri.file(inoFile));
       await vscode7.window.showTextDocument(doc, { preview: false });
+    } else {
+      const post = (payload) => void this.view?.webview.postMessage(payload);
+      try {
+        if (msg.type === "updateIndexes") {
+          this.output.appendLine("[Mngrs] Updating board and library indexes...");
+          const res1 = await runArduinoCli(["update"]);
+          this.output.appendLine(res1.stdout);
+          this.output.appendLine(res1.stderr);
+          const boards = await runArduinoCli(["core", "list", "--json"]);
+          if (boards.success) {
+            const rows = parseInstalledBoards(boards.stdout);
+            post({ type: "boards", rows });
+            this.output.appendLine(`[Mngrs] Loaded ${rows.length} installed boards.`);
+          } else {
+            post({ type: "mgrError", error: boards.stderr || boards.stdout });
+          }
+        } else if (msg.type === "boardSearch") {
+          const boards = await runArduinoCli(["core", "list", "--json"]);
+          if (!boards.success) {
+            post({ type: "mgrError", error: boards.stderr || boards.stdout });
+            return;
+          }
+          post({ type: "boards", rows: parseInstalledBoards(boards.stdout), query: String(msg.query ?? "") });
+        } else if (msg.type === "chooseTarget") {
+          const fqbn = String(msg.fqbn ?? "").trim();
+          if (!fqbn) {
+            post({ type: "mgrError", error: "Select a board first." });
+            return;
+          }
+          this.output.appendLine(`[Mngrs] Choosing target ${fqbn}...`);
+          await this.actions.chooseTarget(fqbn);
+        } else if (msg.type === "uploadFirmwareToTarget") {
+          const fqbn = String(msg.fqbn ?? "").trim();
+          if (!fqbn) {
+            post({ type: "mgrError", error: "Select a board first." });
+            return;
+          }
+          this.output.appendLine(`[Mngrs] Upload firmware to target ${fqbn}...`);
+          await this.actions.uploadFirmwareToTarget(fqbn);
+        } else if (msg.type === "libList") {
+          this.output.appendLine("[Mngrs] Updating library index...");
+          const upd = await runArduinoCli(["lib", "update-index"]);
+          this.output.appendLine(upd.stdout);
+          this.output.appendLine(upd.stderr);
+          const res = await runArduinoCli(["lib", "list", "--json"]);
+          if (!res.success) {
+            post({ type: "mgrError", error: res.stderr || res.stdout });
+            return;
+          }
+          post({ type: "libraries", rows: parseLibraries(res.stdout) });
+        } else if (msg.type === "libSearch") {
+          const q = String(msg.query ?? "").trim();
+          const res = await runArduinoCli(["lib", "search", q, "--json"]);
+          if (!res.success) {
+            post({ type: "mgrError", error: res.stderr || res.stdout });
+            return;
+          }
+          post({ type: "libraries", rows: parseLibraries(res.stdout) });
+        } else if (msg.type === "libInstallSelected") {
+          const name = String(msg.name ?? "").trim();
+          if (!name) {
+            post({ type: "mgrError", error: "Select a library first." });
+            return;
+          }
+          this.output.appendLine(`[Mngrs] Installing library ${name}...`);
+          const res = await runArduinoCli(["lib", "install", name]);
+          this.output.appendLine(res.stdout);
+          this.output.appendLine(res.stderr);
+          if (!res.success) {
+            post({ type: "mgrError", error: res.stderr || res.stdout });
+          } else {
+            vscode7.window.showInformationMessage(`Arduino Grease: Library ${name} installed.`);
+          }
+        }
+      } catch (e) {
+        const err = e instanceof Error ? e.message : String(e);
+        this.output.appendLine(`[Mngrs] Error: ${err}`);
+        post({ type: "mgrError", error: err });
+      }
     }
   }
   html(webview) {
@@ -1467,8 +1557,6 @@ var ArduinoToolbarViewProvider = class {
 
       <div class="tab-panel active" id="panel-board">
         <span class="ascii-line"><span class="dim">+------------ -  -   +</span></span>
-        <span class="ascii-line"><span class="dim">| </span>Ports and Boards</span>
-        <span class="ascii-line"><span class="dim">|</span></span>
         <span class="ascii-line"><span class="dim">| Port:     </span><a class="dim" href="#" onclick="cmd('arduinoMcp.refreshPortsBoards');return false">||R||</a></span>
         <span class="ascii-line"><span class="dim">| </span><span id="portVal">?</span></span>
         <span class="ascii-line"><span class="dim">| Board:</span></span>
@@ -1501,28 +1589,34 @@ var ArduinoToolbarViewProvider = class {
       <div class="tab-panel" id="panel-managers">
         <div class="mgr-header">
           <span class="mgr-label"><a class="c-coral" href="#" onclick="switchTab('board');return false" style="margin-right:4px">||R||</a>Mngrs</span>
-          <a class="c-std" href="#" onclick="onclick='event.preventDefault()');return false">||Update indexes||</a>
+          <a class="c-std" id="updateIdx" href="#" onclick="event.preventDefault()">||Update indexes||</a>
         </div>
+        <div id="mgrErr" style="color:#ffb4b4;white-space:pre-wrap;font-size:10px;margin-bottom:4px"></div>
         <div class="mgr-section">
           <div class="mgr-section-title">Library</div>
           <div class="mgr-card">
             <div class="mgr-top-row">
-              <a class="c-std" id="libList" href="#" onclick="event.preventDefault()">||List installed||</a>
-              <a class="c-green" id="libInstallSelected" href="#" onclick="event.preventDefault()">||Install library||</a>
+              <a class="c-std" id="libListBtn" href="#" onclick="event.preventDefault()">||List installed||</a>
+              <a class="c-green" id="libInstallBtn" href="#" onclick="event.preventDefault()">||Install library||</a>
             </div>
-            <input class="libQuery" placeholder="wire, servo, wifi..." oninput="searchLibs(this.value)" onkeydown="if(event.key==='Enter')searchLibs(this.value)" />
-            <div class="mgr-list libsList"></div>
+            <input id="libQuery" class="libQuery" placeholder="wire, servo, wifi..." />
+            <div class="mgr-list" id="libsList"></div>
           </div>
         </div>
         <div class="mgr-section">
           <div class="mgr-section-title">Board</div>
           <div class="mgr-card">
             <div class="mgr-top-row">
-              <a class="c-std" id="chooseTarget" href="#" onclick="event.preventDefault()">||Choose as target||</a>
-              <a class="c-amber" id="uploadFirmware" href="#" onclick="event.preventDefault()">||Upload firmware||</a>
+              <a class="c-std" id="chooseTargetBtn" href="#" onclick="event.preventDefault()">||Choose as target||</a>
+              <a class="c-amber" id="uploadFirmwareBtn" href="#" onclick="event.preventDefault()">||Upload firmware||</a>
             </div>
-            <input class="boardQuery" placeholder="arduino, esp32, rp2040..." oninput="searchBoards(this.value)" onkeydown="if(event.key==='Enter')searchBoards(this.value)" />
-            <div class="mgr-list boardsList"></div>
+            <input id="boardQuery" class="boardQuery" placeholder="arduino, esp32, rp2040..." />
+            <div class="mgr-list" id="boardsList"></div>
+          </div>
+        </div>
+        <div class="mgr-card" style="margin-top: 9px;">
+          <div class="muted" style="font-size: 11px;">
+            Install a library from github with the terminal commands, such as 'arduino-cli lib install --git-url https://github.com/arduino-libraries/WiFi101.git'
           </div>
         </div>
       </div>
@@ -1585,6 +1679,7 @@ function switchTab(panel) {
   const panelEl = document.getElementById('panel-' + panel);
   if (panelEl) panelEl.classList.add('active');
   rainActive = (panel === 'board' || panel === 'managers' || panel === 'examples' || panel === 'prompt');
+  if (panel === 'managers') { vscode.postMessage({type:'updateIndexes'}); vscode.postMessage({type:'libList'}); }
   if (panel === 'examples') vscode.postMessage({type:'list',library:''});
 }
 
@@ -1755,17 +1850,90 @@ window.addEventListener('message', event => {
     if (errEl) errEl.textContent = msg.error || 'Unknown error';
   } else if (msg.type === 'uploadResult') {
     setRainState(msg.success ? 'idle' : 'error');
+  } else if (msg.type === 'boards') {
+    boards = Array.isArray(msg.rows) ? msg.rows : [];
+    if (!selectedFqbn && boards.length) selectedFqbn = boards[0].fqbn;
+    if (typeof msg.query === "string") boardQuery = msg.query;
+    renderBoards();
+  } else if (msg.type === 'libraries') {
+    libs = Array.isArray(msg.rows) ? msg.rows : [];
+    if (!selectedLib && libs.length) selectedLib = libs[0].name;
+    renderLibs();
+  } else if (msg.type === 'mgrError') {
+    const el = document.getElementById('mgrErr');
+    if (el) el.textContent = msg.error || '';
   }
 });
 
+let boards = [];
+let libs = [];
+let selectedFqbn = "";
+let selectedLib = "";
+let boardQuery = "";
 
-
-const boardsMock=[{name:'Arduino AVR Boards',id:'arduino:avr',version:'1.8.6'},{name:'ESP32 Arduino',id:'esp32:esp32',version:'2.0.14'},{name:'Raspberry Pi Pico',id:'rp2040:rp2040',version:'3.9.3'},{name:'Arduino SAMD',id:'arduino:samd',version:'1.8.14'},{name:'STM32 Arduino',id:'STM:stm32',version:'2.7.1'},{name:'nRF52 Boards',id:'adafruit:nrf52',version:'1.3.0'}];
-const libsMock=[{name:'Wire',version:'1.0.0',desc:'I2C protocol'},{name:'Servo',version:'1.2.1',desc:'Servo motors'},{name:'WiFi',version:'1.2.7',desc:'WiFi connectivity'},{name:'FastLED',version:'3.6.0',desc:'LED animation'},{name:'ArduinoJson',version:'7.1.0',desc:'JSON parsing'},{name:'PubSubClient',version:'2.8.0',desc:'MQTT messaging'}];
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;');}
-function searchBoards(q){const els=document.querySelectorAll('.boardsList');const f=boardsMock.filter(b=>!q||b.name.toLowerCase().includes(q.toLowerCase())||b.id.toLowerCase().includes(q.toLowerCase()));const html=f.length?f.map(b=>'<div class="mgr-item"><div class="name">'+esc(b.name)+'</div><div class="meta">'+esc(b.id)+' v'+b.version+'</div></div>').join(''):'<div style="color:var(--muted);font-size:10px">No boards found.</div>';els.forEach(el=>el.innerHTML=html);}
-function searchLibs(q){const els=document.querySelectorAll('.libsList');const f=libsMock.filter(l=>!q||l.name.toLowerCase().includes(q.toLowerCase())||l.desc.toLowerCase().includes(q.toLowerCase()));const html=f.length?f.map(l=>'<div class="mgr-item"><div class="name">'+esc(l.name)+'</div><div class="meta">v'+l.version+' '+esc(l.desc)+'</div></div>').join(''):'<div style="color:var(--muted);font-size:10px">No libraries found.</div>';els.forEach(el=>el.innerHTML=html);}
-searchBoards('');searchLibs('');
+
+function renderBoards() {
+  const filtered = boards.filter((b) => {
+    const q = boardQuery.toLowerCase();
+    if (!q) return true;
+    return (b.name + " " + b.fqbn + " " + b.platform).toLowerCase().includes(q);
+  });
+  if (!filtered.length) {
+    document.getElementById('boardsList').innerHTML = "<div class='muted' style='font-size:10px'>No installed boards found.</div>";
+    return;
+  }
+  document.getElementById('boardsList').innerHTML = filtered.map((b) => {
+    const active = selectedFqbn === b.fqbn ? "active" : "";
+    const border = selectedFqbn === b.fqbn ? "border-color: #58aa58; box-shadow: 0 0 0 1px #58aa58 inset;" : "";
+    return "<div class='mgr-item' style='" + border + "' data-fqbn='" + esc(b.fqbn) + "'><div class='name'>" + esc(b.name) + "</div><div class='meta'>" + esc(b.fqbn) + " | " + esc(b.platform) + " @ " + esc(b.version) + "</div></div>";
+  }).join("");
+
+  document.querySelectorAll("#boardsList .mgr-item").forEach((el) => {
+    el.addEventListener("click", () => {
+      selectedFqbn = el.getAttribute("data-fqbn") || "";
+      renderBoards();
+    });
+  });
+}
+
+function renderLibs() {
+  if (!libs.length) {
+    document.getElementById('libsList').innerHTML = "<div class='muted' style='font-size:10px'>No libraries loaded.</div>";
+    return;
+  }
+  document.getElementById('libsList').innerHTML = libs.map((l) => {
+    const right = l.version || l.author || l.sentence || "";
+    const border = selectedLib === l.name ? "border-color: #58aa58; box-shadow: 0 0 0 1px #58aa58 inset;" : "";
+    return "<div class='mgr-item' style='" + border + "' data-lib='" + esc(l.name) + "'><div class='name'>" + esc(l.name) + "</div><div class='meta'>" + esc(right) + "</div></div>";
+  }).join("");
+
+  document.querySelectorAll("#libsList .mgr-item").forEach((el) => {
+    el.addEventListener("click", () => {
+      selectedLib = el.getAttribute("data-lib") || "";
+      renderLibs();
+    });
+  });
+}
+
+const $ = (id) => document.getElementById(id);
+$("updateIdx")?.addEventListener("click", () => vscode.postMessage({ type: "updateIndexes" }));
+$("boardQuery")?.addEventListener("keydown", (e) => {
+  if(e.key === 'Enter') {
+    boardQuery = $("boardQuery").value || "";
+    vscode.postMessage({ type: "boardSearch", query: boardQuery });
+  }
+});
+$("chooseTargetBtn")?.addEventListener("click", () => vscode.postMessage({ type: "chooseTarget", fqbn: selectedFqbn }));
+$("uploadFirmwareBtn")?.addEventListener("click", () => vscode.postMessage({ type: "uploadFirmwareToTarget", fqbn: selectedFqbn }));
+$("libListBtn")?.addEventListener("click", () => vscode.postMessage({ type: "libList" }));
+$("libQuery")?.addEventListener("keydown", (e) => {
+  if(e.key === 'Enter') {
+    vscode.postMessage({ type: "libSearch", query: $("libQuery").value });
+  }
+});
+$("libInstallBtn")?.addEventListener("click", () => vscode.postMessage({ type: "libInstallSelected", name: selectedLib }));
+
 function onUploadClick(){setRainState('thrust');cmd('arduinoMcp.upload');}
 </script>
 
@@ -1823,7 +1991,31 @@ async function activate(context) {
   const serialPlotterPanel = new SerialPlotterPanel(output);
   const examplesPanel = new ExamplesPanel(context, output);
   const boardTemplatePanel = new BoardTemplatePanel(context);
-  const toolbar = new ArduinoToolbarViewProvider(context);
+  const toolbar = new ArduinoToolbarViewProvider(context, output, {
+    chooseTarget: async (fqbn) => {
+      const port = currentTarget?.port ?? lastCandidates[0]?.port ?? null;
+      if (!port) {
+        vscode8.window.showWarningMessage("Arduino Grease: No port detected. Connect a board first.");
+        return;
+      }
+      currentTarget = { port, fqbn };
+      await saveTarget(context, currentTarget);
+      setOk(currentTarget);
+      refreshToolbarState();
+    },
+    uploadFirmwareToTarget: async (fqbn) => {
+      const port = currentTarget?.port ?? lastCandidates[0]?.port ?? null;
+      if (!port) {
+        vscode8.window.showWarningMessage("Arduino Grease: No port detected. Connect a board first.");
+        return;
+      }
+      currentTarget = { port, fqbn };
+      await saveTarget(context, currentTarget);
+      setOk(currentTarget);
+      refreshToolbarState();
+      await runFirmwareUpload(fqbn, port);
+    }
+  });
   context.subscriptions.push(vscode8.window.registerWebviewViewProvider(ArduinoToolbarViewProvider.viewType, toolbar));
   let lastCandidates = [];
   let lastPorts = /* @__PURE__ */ new Set();
@@ -2058,50 +2250,25 @@ async function activate(context) {
   };
   const runFirmwareUpload = async (fqbn, port) => {
     output.show(true);
-    const parts = fqbn.split(":");
-    const pkg = parts.length >= 2 ? `${parts[0]}:${parts[1]}` : fqbn;
-    output.appendLine(`[Mngrs] Downloading/updating core package ${pkg}...`);
-    const core = await runArduinoCli(["core", "install", pkg]);
-    output.appendLine(core.stdout);
-    output.appendLine(core.stderr);
-    const tmpRoot = fs3.mkdtempSync(path4.join(os.tmpdir(), "arduino-grease-fw-"));
-    const sketchName = "FirmwareRecovery";
-    const sketchDir = path4.join(tmpRoot, sketchName);
-    fs3.mkdirSync(sketchDir, { recursive: true });
-    const ino = path4.join(sketchDir, `${sketchName}.ino`);
-    fs3.writeFileSync(
-      ino,
-      [
-        "// Arduino Grease firmware recovery sketch",
-        "void setup(){",
-        "  pinMode(LED_BUILTIN, OUTPUT);",
-        "}",
-        "void loop(){",
-        "  digitalWrite(LED_BUILTIN, HIGH);",
-        "  delay(120);",
-        "  digitalWrite(LED_BUILTIN, LOW);",
-        "  delay(120);",
-        "}"
-      ].join("\n"),
-      "utf8"
-    );
-    output.appendLine(`[Mngrs] Compiling recovery firmware for ${fqbn}...`);
-    const comp = await runArduinoCli(["compile", "-v", "--fqbn", fqbn, sketchDir], sketchDir);
-    output.appendLine(comp.stdout);
-    output.appendLine(comp.stderr);
-    if (!comp.success) {
-      vscode8.window.showErrorMessage("Arduino Grease: Firmware compile failed (see Output).");
-      return;
+    const programmer = await vscode8.window.showInputBox({
+      title: "Programmer",
+      prompt: "Enter programmer (e.g., avrispmkii, usbtinyisp) or leave empty for default",
+      ignoreFocusOut: false
+    });
+    if (programmer === undefined) return;
+    output.appendLine(`[Mngrs] Burning bootloader for ${fqbn} on ${port}...`);
+    const args = ["burn-bootloader", "-b", fqbn, "-p", port];
+    if (programmer) {
+      args.push("-P", programmer);
     }
-    output.appendLine(`[Mngrs] Uploading firmware to ${port}...`);
-    const up = await runArduinoCli(["upload", "-v", "-p", port, "--fqbn", fqbn, sketchDir], sketchDir);
+    const up = await runArduinoCli(args);
     output.appendLine(up.stdout);
     output.appendLine(up.stderr);
     if (!up.success) {
-      vscode8.window.showErrorMessage("Arduino Grease: Firmware upload failed (see Output).");
+      vscode8.window.showErrorMessage("Arduino Grease: Burn bootloader failed (see Output).");
       return;
     }
-    vscode8.window.showInformationMessage("Arduino Grease: Firmware uploaded to target.");
+    vscode8.window.showInformationMessage("Arduino Grease: Bootloader burned to target.");
   };
   const managersPanel = new ManagersPanel(context, output, {
     chooseTarget: async (fqbn) => {
