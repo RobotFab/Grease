@@ -1626,7 +1626,7 @@ function drawRain(){
   function drop(d,x){
     const dx=x-mouseX,dy=d.y-mouseY,dist=Math.sqrt(dx*dx+dy*dy);
     const inSlow = dist < 60;
-    const inHalt = dist < 10;
+    const inHalt = dist < 15;
     
     if(inHalt && !d.halted){
       d.halted = true;
@@ -1646,8 +1646,8 @@ function drawRain(){
         bo=(inSlow?0.40:0.08) + (d.o||0) + thrustOpacityBoost;
         ho=(inSlow?0.80:0.15) + (d.o||0) + thrustOpacityBoost;
         fz=inSlow?13:12;
-        const normalSp = 2.8 * thrustSpeedMult;
-        sp = inHalt ? 0 : (inSlow ? normalSp * ((dist-10)/50) : normalSp);
+        const normalSp = 7.5 * thrustSpeedMult;
+        sp = inHalt ? 0 : (inSlow ? (1.2 + Math.random() * 0.6) : normalSp);
       }
     }
     else{bo=Math.min(1,(inSlow?0.40:0.03)+d.o); ho=Math.min(1,(inSlow?0.80:0.10)+d.o); fz=inSlow?13:12; sp=inSlow?(3+(60-dist)*0.08):(1.2+Math.random()*0.6);}
