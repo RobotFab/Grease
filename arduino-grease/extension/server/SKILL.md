@@ -40,11 +40,11 @@
 
 ```
 1. readSkill           ← always start here
-2. detectBoards        ← find the connected hardware
+2. detectBoards        ← find the connected hardware, and use PIN information from that microcontroller
 3. getState            ← confirm port + fqbn
 4. [edit sketch code]
 5. compileSketch       ← verify it builds
-6. uploadSketch        ← flash to board
+6. uploadSketch        ← flash to board by pressing the ||Upload|| button
 7. serialOpen          ← open serial at correct baud
 8. serialRead          ← observe behaviour
 9. [iterate as needed]
@@ -65,3 +65,13 @@
 
 Edit this file (`SKILL.md`) to add project-specific rules, pin maps, library preferences,
 or domain knowledge for your particular robot. The AI agent will read it fresh every session.
+
+Using XML to guide the agent:
+
+<goal> goal </goal>. The goal XML will guide the agent to know the objective of that session. It will be a very short description of what needs to be accomplished.
+
+<hw> hardware </hw>. The hardware XML will guide the agent to know what hardware is connected to the microcontroller. Sensors and motors , their pins, motor drivers in between, and everything that is related to hardware.
+
+<mech> mechanical </mech>. The mechanical XML will guide the agent to know the mechanical structure of the robot. The radius  of the wheels, the distance between them, the height of the robot, lengths of links between joints, etc.
+
+<control> control </control>. The control XML will guide the agent to know the control strategy of the robot. The PID gains, the control loops, the control strategy of the robot, or perhaps learning behaviours as well.
