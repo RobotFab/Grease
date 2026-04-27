@@ -67,10 +67,12 @@ async function startBundledServer(context, output, preferredPort = 3333) {
   const port = await pickPort(preferredPort);
   const nodePath = process.env.ARDUINO_MCP_NODE_PATH || "node";
   const serverPath = context.asAbsolutePath(path.join("server", "server.mjs"));
+  const { randomBytes } = await import("node:crypto");
+  const authKey = randomBytes(24).toString("hex");
   output.appendLine(`Starting bundled Arduino MCP server on port ${port}...`);
   const child = (0, import_node_child_process.spawn)(nodePath, [serverPath], {
     cwd: context.extensionPath,
-    env: { ...process.env, MCP_PORT: String(port), MCP_HOST: "127.0.0.1" }
+    env: { ...process.env, MCP_PORT: String(port), MCP_HOST: "127.0.0.1", MCP_AUTH_KEY: authKey }
   });
   child.stdout.on("data", (d) => output.appendLine(`[server] ${String(d).trimEnd()}`));
   child.stderr.on("data", (d) => output.appendLine(`[server:err] ${String(d).trimEnd()}`));
@@ -81,6 +83,7 @@ async function startBundledServer(context, output, preferredPort = 3333) {
   }
   return {
     port,
+    authKey,
     stop: async () => {
       if (child.killed) return;
       child.kill("SIGTERM");
@@ -254,6 +257,8 @@ function getSketchFolder() {
 
 // src/serverHttpClient.ts
 var baseUrl = "http://127.0.0.1:3333";
+var _authKey = "";
+function setAuthKey(key) { _authKey = key; }
 function setServerBaseUrl(url) {
   const clean = String(url || "").trim();
   if (!clean) return;
@@ -262,14 +267,14 @@ function setServerBaseUrl(url) {
 async function postJson(path5, body) {
   const res = await fetch(`${baseUrl}${path5}`, {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", "x-grease-auth": _authKey },
     body: JSON.stringify(body ?? {})
   });
   if (!res.ok) throw new Error(`HTTP ${res.status} ${path5}`);
   return await res.json();
 }
 async function getHealth() {
-  const res = await fetch(`${baseUrl}/health`);
+  const res = await fetch(`${baseUrl}/health`, { headers: { "x-grease-auth": _authKey } });
   if (!res.ok) throw new Error(`HTTP ${res.status} /health`);
   return await res.json();
 }
@@ -1645,7 +1650,7 @@ function drawRain(){
       bo=(inRepel?0.40:0.08) + d.o + thrustOpacityBoost;
       ho=(inRepel?0.80:0.15) + d.o + thrustOpacityBoost;
       fz=inRepel?13:12;
-      sp=inHalt ? -((10-dist)*0.8) * thrustSpeedMult : (inRepel?(3+(40-dist)*0.08):2.8) * thrustSpeedMult;
+      sp=inHalt ? -((5-Math.min(dist,5))*1.8) * thrustSpeedMult : (inRepel?(3+(40-dist)*0.08):2.8) * thrustSpeedMult;
     }
     else{bo=Math.min(1,(inRepel?0.40:0.03)+d.o); ho=Math.min(1,(inRepel?0.80:0.10)+d.o); fz=inRepel?13:12; sp=inRepel?(3+(60-dist)*0.08):(1.2+Math.random()*0.6);}
     
@@ -1777,6 +1782,7 @@ async function activate(context) {
     try {
       serverProcess = await startBundledServer(context, output, 3333);
       setServerBaseUrl(`http://127.0.0.1:${serverProcess.port}`);
+      setAuthKey(serverProcess.authKey);
       output.appendLine(`Arduino Grease server started on port ${serverProcess.port}.`);
       return true;
     } catch (e) {

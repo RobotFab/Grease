@@ -1,4 +1,6 @@
 import http from "node:http";
+import fs from "node:fs";
+import path from "node:path";
 import { randomUUID } from "node:crypto";
 
 import { createMcpExpressApp } from "@modelcontextprotocol/express";
@@ -11,6 +13,10 @@ import { SerialManager } from "./lib/serialManager.mjs";
 
 const PORT = Number(process.env.MCP_PORT || process.env.PORT || "3333");
 const HOST = process.env.MCP_HOST || "127.0.0.1";
+const AUTH_KEY = process.env.MCP_AUTH_KEY || "";
+
+// Path to SKILL.md — lives alongside server.mjs so it travels with the extension.
+const SKILL_PATH = path.join(import.meta.dirname ?? path.dirname(new URL(import.meta.url).pathname), "SKILL.md");
 
 const state = {
   target: /** @type {{ port: string|null, fqbn: string|null }} */ ({ port: null, fqbn: null }),
@@ -25,12 +31,42 @@ function asTextResult(obj) {
   };
 }
 
+/** Read SKILL.md, returning its text or a helpful fallback. */
+function readSkillMd() {
+  try {
+    if (fs.existsSync(SKILL_PATH)) return fs.readFileSync(SKILL_PATH, "utf8");
+    return "(SKILL.md not found — create it at: " + SKILL_PATH + ")";
+  } catch (e) {
+    return "(Error reading SKILL.md: " + (e?.message ?? String(e)) + ")";
+  }
+}
+
 async function main() {
+  // Log skill on startup so the IDE output channel shows it immediately.
+  console.log("=== Arduino Grease SKILL.md ===");
+  console.log(readSkillMd());
+  console.log("================================");
+
   const server = new McpServer(
     { name: "arduino-mcp", version: "0.1.0" },
     { capabilities: { tools: {} } }
   );
 
+  // ── SKILL tool ─────────────────────────────────────────────────────────────
+  server.registerTool(
+    "readSkill",
+    {
+      title: "Read Arduino Grease SKILL.md — read this FIRST before doing any work",
+      description:
+        "Returns the content of SKILL.md, which defines robot-specific behaviours, " +
+        "constraints, and preferences for this project. Always call this tool at the " +
+        "start of every session before writing or uploading any code.",
+      inputSchema: {},
+    },
+    async () => asTextResult({ skill: readSkillMd(), path: SKILL_PATH })
+  );
+
+  // ── Board tools ─────────────────────────────────────────────────────────────
   server.registerTool("detectBoards", { title: "Detect connected Arduino boards", inputSchema: {} }, async () => {
     const result = await detectBoards();
     return asTextResult(result);
@@ -109,6 +145,7 @@ async function main() {
     }
   );
 
+  // ── Serial tools ────────────────────────────────────────────────────────────
   server.registerTool(
     "serialOpen",
     {
@@ -180,10 +217,23 @@ async function main() {
 
   app.use(express.json());
 
+  // ── Auth middleware ─────────────────────────────────────────────────────────
+  // All routes except /health require the shared auth key.
+  app.use((req, res, next) => {
+    if (req.path === "/health") return next();        // health check is always open
+    if (!AUTH_KEY) return next();                     // dev fallback: no key set = open
+    const provided = req.headers["x-grease-auth"];
+    if (provided !== AUTH_KEY) {
+      return res.status(401).json({ ok: false, error: "Unauthorized" });
+    }
+    next();
+  });
+
+  // ── REST endpoints ──────────────────────────────────────────────────────────
   app.get("/health", (_req, res) => res.json({ ok: true, name: "arduino-mcp", port: PORT }));
   app.get("/state", (_req, res) => res.json({ ...state, serial: serial.status() }));
+  app.get("/skill", (_req, res) => res.type("text/plain").send(readSkillMd()));
 
-  // Simple REST endpoints for the IDE UI (avoids needing an MCP client in the extension host).
   app.post("/serial/open", async (req, res) => {
     try {
       const { path, baudRate } = req.body ?? {};
@@ -222,16 +272,8 @@ async function main() {
   });
 
   const shutdown = async () => {
-    try {
-      await server.close();
-    } catch {
-      // ignore
-    }
-    try {
-      await serial.close();
-    } catch {
-      // ignore
-    }
+    try { await server.close(); } catch { /* ignore */ }
+    try { await serial.close(); } catch { /* ignore */ }
     httpServer.close(() => process.exit(0));
   };
 
@@ -244,4 +286,3 @@ main().catch((err) => {
   console.error(err);
   process.exit(1);
 });
-
