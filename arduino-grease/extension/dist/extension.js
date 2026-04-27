@@ -1555,26 +1555,13 @@ var ArduinoToolbarViewProvider = class {
           <a class="c-std" href="#" onclick="cmd('arduinoMcp.openBoardTemplate');return false">||Update indexes||</a>
         </div>
         <div class="mgr-section">
-          <div class="mgr-card">
-            <div class="mgr-top-row">
-              <a class="c-std" href="#" onclick="cmd('arduinoMcp.openBoardTemplate');return false">     
-              Your AI needs structure! If your AI Tether is active, your Prompt is already "greased". Try to use the following XMLs to emphasize goals, hardware, mechanical components or control:
-
-Write a program to <goal> stack 5 cups </goal>. I am using <hw> 2 servo motors and one temperature sensor with 3 pins</hw>.
- <mech> a 2 inch whe
-For example, when mentioning hardware, 
-</text>
-              
-              
-              
-              
-              
-              
-              
-              
-              
-              
-              !</a>
+          <div class="mgr-card" style="padding: 10px; font-size: 10px; line-height: 1.4; color: var(--muted);">
+            <p>Have you ever tried to go through a code with all lines and comments that were commented out uncommented? Your AI needs structure!</p>
+            <p style="margin-top: 8px;">If your AI Tether is active, your Prompt is already "greased". Try to use the following XML tags to emphasize goals, hardware, mechanical components or control:</p>
+            <div style="margin-top: 8px; color: var(--ink); border-left: 2px solid var(--muted); padding-left: 8px;">
+              Write a program to &lt;goal&gt; stack 5 cups &lt;/goal&gt;. I am using &lt;hw&gt; 2 servo motors and one 3-pin temperature sensor. My orange wire is on pin 13&lt;/hw&gt;.
+              <br><br>
+              My robot has &lt;mech&gt; a 2 inch wheel &lt;/mech&gt; and is using &lt;control&gt; a PD controller &lt;/control&gt;
             </div>
           </div>
         </div>
@@ -1635,7 +1622,7 @@ function drawRain(){
   function drop(d,x){
     const dx=x-mouseX,dy=d.y-mouseY,dist=Math.sqrt(dx*dx+dy*dy);
     const inRepel = (st === 'thrust' ? dist < 40 : dist < 60);
-    const inHalt = (st === 'thrust' && dist < 15);
+    const inHalt = (st === 'thrust' && dist < 5);
     
     if(inHalt && !d.halted){
       d.halted = true;
@@ -1652,7 +1639,7 @@ function drawRain(){
       bo=(inRepel?0.40:0.08) + d.o + thrustOpacityBoost;
       ho=(inRepel?0.80:0.15) + d.o + thrustOpacityBoost;
       fz=inRepel?13:12;
-      sp=inHalt ? -((5-Math.min(dist,5))*1.8) * thrustSpeedMult : (inRepel?(3+(40-dist)*0.08):2.8) * thrustSpeedMult;
+      sp=inHalt ? 0 : (inRepel?(3+(40-dist)*0.08):2.8) * thrustSpeedMult;
     }
     else{bo=Math.min(1,(inRepel?0.40:0.03)+d.o); ho=Math.min(1,(inRepel?0.80:0.10)+d.o); fz=inRepel?13:12; sp=inRepel?(3+(60-dist)*0.08):(1.2+Math.random()*0.6);}
     

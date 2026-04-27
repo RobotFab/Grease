@@ -46,7 +46,7 @@ npm run build
 npx @vscode/vsce package --skip-license --allow-missing-repository
 ```
 
-2. Install the generated `arduino-grease-0.2.2.vsix` from your IDE’s extension installer (VS Code/Cursor/Antigravity/Other VS-based IDEs).
+2. Install the generated `arduino-grease-0.2.6.vsix` from your IDE’s extension installer (VS Code/Cursor/Antigravity/Other VS-based IDEs).
 
 ### Credits
 
