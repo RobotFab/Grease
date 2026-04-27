@@ -563,9 +563,9 @@ var SerialPlotterPanel = class {
       function setStatus(s) {
         if (!s) return;
         const connected = !!s.isOpen;
-        $("status").textContent = connected ? ("Connected: " + s.path + " @ " + s.baudRate) : "Disconnected";
+        $("status").textContent = connected ? (" " + s.path + " @ " + s.baudRate) : "Disconnected";
         $("toggle").textContent = connected ? "||S|| █running " : "||S|| █stopped ";
-        $("toggle").style.color = connected ? "#49c06b" : "#6f6f6f";
+        $("toggle").style.color = connected ? "#49c06b" : "#593b3bff";
       }
 
       function drawGrid(w, h) {
@@ -1552,17 +1552,21 @@ var ArduinoToolbarViewProvider = class {
       <div class="tab-panel" id="panel-prompt">
         <div class="mgr-header">
           <span class="mgr-label"><a class="c-coral" href="#" onclick="switchTab('board');return false" style="margin-right:4px">||R||</a>AI Prompt Template</span>
-          <a class="c-std" href="#" onclick="cmd('arduinoMcp.openBoardTemplate');return false">||Update indexes||</a>
         </div>
         <div class="mgr-section">
           <div class="mgr-card" style="padding: 10px; font-size: 10px; line-height: 1.4; color: var(--muted);">
-            <p>Have you ever tried to go through a code with all lines and comments that were commented out uncommented? Your AI needs structure!</p>
-            <p style="margin-top: 8px;">If your AI Tether is active, your Prompt is already "greased". Try to use the following XML tags to emphasize goals, hardware, mechanical components or control:</p>
+            <p>Your AI needs structure!</p>
+            <p style="margin-top: 8px;">If your AI Tether is active, your Prompt is already "greased". Try to use the following XML tags to emphasize goals, electronic hardware, mechanical components or control preferences. One example below:</p>
             <div style="margin-top: 8px; color: var(--ink); border-left: 2px solid var(--muted); padding-left: 8px;">
               Write a program to &lt;goal&gt; stack 5 cups &lt;/goal&gt;. I am using &lt;hw&gt; 2 servo motors and one 3-pin temperature sensor. My orange wire is on pin 13&lt;/hw&gt;.
               <br><br>
               My robot has &lt;mech&gt; a 2 inch wheel &lt;/mech&gt; and is using &lt;control&gt; a PD controller &lt;/control&gt;
             </div>
+            <p style="margin-top: 8px;">
+              You can also create your own skills (for example, a skill &lt;learning&gt; could specify a preferred deep Q-learning strategy), or &lt;references&gt; could aggregate datasheets from different modules. Modify SKILL.md accordingly!
+              <br>
+              Make sure your AI Tether (MCP Server) is running, and that you lay out the logic flow needed to achieve that target:
+            </p>
           </div>
         </div>
       </div>
@@ -1621,8 +1625,8 @@ function drawRain(){
 
   function drop(d,x){
     const dx=x-mouseX,dy=d.y-mouseY,dist=Math.sqrt(dx*dx+dy*dy);
-    const inRepel = (st === 'thrust' ? dist < 40 : dist < 60);
-    const inHalt = (st === 'thrust' && dist < 5);
+    const inSlow = dist < 60;
+    const inHalt = dist < 10;
     
     if(inHalt && !d.halted){
       d.halted = true;
@@ -1634,15 +1638,21 @@ function drawRain(){
 
     let bo,ho,fz,sp;
     if(st==='error'){bo=0.30;ho=0.30;fz=13;sp=0;}
-    else if(st==='bright'){bo=Math.min(1,(inRepel?0.40:0.03)+0.12);ho=Math.min(1,(inRepel?0.80:0.10)+0.50);fz=13;sp=inRepel?(3+(60-dist)*0.08):(1.2+Math.random()*0.6);}
+    else if(st==='bright'){bo=Math.min(1,(inSlow?0.40:0.03)+0.12);ho=Math.min(1,(inSlow?0.80:0.10)+0.50);fz=13;sp=inSlow?(3+(60-dist)*0.08):(1.2+Math.random()*0.6);}
     else if(st==='thrust'){
-      bo=(inRepel?0.40:0.08) + d.o + thrustOpacityBoost;
-      ho=(inRepel?0.80:0.15) + d.o + thrustOpacityBoost;
-      fz=inRepel?13:12;
-      sp=inHalt ? 0 : (inRepel?(3+(40-dist)*0.08):2.8) * thrustSpeedMult;
+      if(d.rocket){
+        bo=0.5; ho=0.5; fz=14; sp=1000;
+      } else {
+        bo=(inSlow?0.40:0.08) + (d.o||0) + thrustOpacityBoost;
+        ho=(inSlow?0.80:0.15) + (d.o||0) + thrustOpacityBoost;
+        fz=inSlow?13:12;
+        const normalSp = 2.8 * thrustSpeedMult;
+        sp = inHalt ? 0 : (inSlow ? normalSp * ((dist-10)/50) : normalSp);
+      }
     }
-    else{bo=Math.min(1,(inRepel?0.40:0.03)+d.o); ho=Math.min(1,(inRepel?0.80:0.10)+d.o); fz=inRepel?13:12; sp=inRepel?(3+(60-dist)*0.08):(1.2+Math.random()*0.6);}
+    else{bo=Math.min(1,(inSlow?0.40:0.03)+d.o); ho=Math.min(1,(inSlow?0.80:0.10)+d.o); fz=inSlow?13:12; sp=inSlow?(3+(60-dist)*0.08):(1.2+Math.random()*0.6);}
     
+    if(d.y < -20) d.rocket = false;
     const finalBRGB = d.blue ? '0,100,210' : bRGB;
     const finalHRGB = d.blue ? '80,160,255' : hRGB;
 
@@ -1667,6 +1677,16 @@ resizeRain();new ResizeObserver(resizeRain).observe(panelArea);setInterval(drawR
 document.addEventListener('mousedown',e=>{
   if(rainState === 'idle' && e.target.closest('a')) setRainState('bright');
   if(rainState === 'thrust' && e.button === 0){
+    const r=rainCanvas.getBoundingClientRect();
+    const cx=e.clientX-r.left, cy=e.clientY-r.top;
+    for(let i=0;i<drops.length;i++){
+      const dx=(i*COL+4)-cx, dy=drops[i].y-cy;
+      if(Math.sqrt(dx*dx+dy*dy)<25) drops[i].rocket=true;
+    }
+    for(let i=0;i<extraDrops.length;i++){
+      const dx=extraDrops[i].x-cx, dy=extraDrops[i].y-cy;
+      if(Math.sqrt(dx*dx+dy*dy)<25) extraDrops[i].rocket=true;
+    }
     thrustRightTimer = setInterval(()=>{
       if(extraDrops.length < drops.length * 8) {
         for(let i=0; i<drops.length; i++) extraDrops.push({x:Math.random()*W, y:Math.random()*H, o:0, blue:false, halted:false});
@@ -1684,7 +1704,7 @@ document.addEventListener('contextmenu',e=>{if(rainState==='thrust')e.preventDef
 function setServer(state) {
   const block = document.getElementById('serverBlock');
   const status = document.getElementById('serverStatus');
-  if (!state.serverRunning) { block.style.color='#6f6f6f'; status.textContent='stopped'; return; }
+  if (!state.serverRunning) { block.style.color='#593b3bff'; status.textContent='stopped'; return; }
   if (state.serverHealthy) { block.style.color='#49c06b'; status.textContent='running'; return; }
   block.style.color='#d2b046'; status.textContent='starting...';
 }
