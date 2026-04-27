@@ -1117,11 +1117,9 @@ var ManagersPanel = class {
       </div>
     </div>
 
-    <div class="card" style="margin-top: 9px;">
-      <div class="muted" style="font-size: 11px;">
-        Install a library from github with the terminal commands, such as 'arduino-cli lib install --git-url https://github.com/arduino-libraries/WiFi101.git'
-      </div>
-    </div>
+    <p>
+      Install Github libraries with terminal commands, such as 'arduino-cli lib install --git-url https://github.com/arduino-libraries/WiFi101.git'
+    </p>
 
     <script>
       const vscode = acquireVsCodeApi();
