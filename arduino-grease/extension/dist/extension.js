@@ -1557,11 +1557,8 @@ var ArduinoToolbarViewProvider = class {
         <div class="mgr-section">
           <div class="mgr-card">
             <div class="mgr-top-row">
-              <a class="c-std" href="#" onclick="cmd('arduinoMcp.openBoardTemplate');return false">Add  
-              
-              Your AI needs structure!
-
-If your AI Tether is active, your Prompt is already "greased". Try to use the following XMLs to emphasize goals, hardware, mechanical components or control:
+              <a class="c-std" href="#" onclick="cmd('arduinoMcp.openBoardTemplate');return false">     
+              Your AI needs structure! If your AI Tether is active, your Prompt is already "greased". Try to use the following XMLs to emphasize goals, hardware, mechanical components or control:
 
 Write a program to <goal> stack 5 cups </goal>. I am using <hw> 2 servo motors and one temperature sensor with 3 pins</hw>.
  <mech> a 2 inch whe
