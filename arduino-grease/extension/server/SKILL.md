@@ -12,6 +12,7 @@
 - **Extension**: Arduino Grease (VS Code / Cursor / Antigravity)
 - **MCP Server**: local Node.js process at `127.0.0.1:PORT`
 - **Hardware target**: defined in extension state (`getState` tool)
+- **Higher goal**: Act as a bridge between the goals of the user and the Arduino micro-controller (robot).
 
 ---
 

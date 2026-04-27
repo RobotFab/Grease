@@ -1501,14 +1501,14 @@ var ArduinoToolbarViewProvider = class {
       <div class="tab-panel" id="panel-managers">
         <div class="mgr-header">
           <span class="mgr-label"><a class="c-coral" href="#" onclick="switchTab('board');return false" style="margin-right:4px">||R||</a>Mngrs</span>
-          <a class="c-std" href="#" onclick="cmd('arduinoMcp.openManagers');return false">||Update indexes||</a>
+          <a class="c-std" href="#" onclick="onclick='event.preventDefault()');return false">||Update indexes||</a>
         </div>
         <div class="mgr-section">
           <div class="mgr-section-title">Library</div>
           <div class="mgr-card">
             <div class="mgr-top-row">
-              <a class="c-std" href="#" onclick="cmd('arduinoMcp.openManagers');return false">||List installed||</a>
-              <a class="c-green" href="#" onclick="cmd('arduinoMcp.openManagers');return false">||Install selected||</a>
+              <a class="c-std" id="libList" href="#" onclick="event.preventDefault()">||List installed||</a>
+              <a class="c-green" id="libInstallSelected" href="#" onclick="event.preventDefault()">||Install library||</a>
             </div>
             <input class="libQuery" placeholder="wire, servo, wifi..." oninput="searchLibs(this.value)" onkeydown="if(event.key==='Enter')searchLibs(this.value)" />
             <div class="mgr-list libsList"></div>
@@ -1518,8 +1518,8 @@ var ArduinoToolbarViewProvider = class {
           <div class="mgr-section-title">Board</div>
           <div class="mgr-card">
             <div class="mgr-top-row">
-              <a class="c-std" href="#" onclick="cmd('arduinoMcp.openManagers');return false">||Choose as target||</a>
-              <a class="c-amber" href="#" onclick="cmd('arduinoMcp.openManagers');return false">||Upload firmware||</a>
+              <a class="c-std" id="chooseTarget" href="#" onclick="event.preventDefault()">||Choose as target||</a>
+              <a class="c-amber" id="uploadFirmware" href="#" onclick="event.preventDefault()">||Upload firmware||</a>
             </div>
             <input class="boardQuery" placeholder="arduino, esp32, rp2040..." oninput="searchBoards(this.value)" onkeydown="if(event.key==='Enter')searchBoards(this.value)" />
             <div class="mgr-list boardsList"></div>
@@ -1564,8 +1564,9 @@ var ArduinoToolbarViewProvider = class {
             </div>
             <p style="margin-top: 8px;">
               You can also create your own skills (for example, a skill &lt;learning&gt; could specify a preferred deep Q-learning strategy), or &lt;references&gt; could aggregate datasheets from different modules. Modify SKILL.md accordingly!
-              <br>
-              Make sure your AI Tether (MCP Server) is running, and that you lay out the logic flow needed to achieve that target:
+            </p>
+            <p>
+              Make sure your AI Tether (MCP Server) is running, and that you lay out in your prompt the logic flow needed to achieve that goal.
             </p>
           </div>
         </div>
@@ -1641,7 +1642,7 @@ function drawRain(){
     else if(st==='bright'){bo=Math.min(1,(inSlow?0.40:0.03)+0.12);ho=Math.min(1,(inSlow?0.80:0.10)+0.50);fz=13;sp=inSlow?(3+(60-dist)*0.08):(1.2+Math.random()*0.6);}
     else if(st==='thrust'){
       if(d.rocket){
-        bo=0.5; ho=0.5; fz=14; sp=1000;
+        bo=0.5; ho=0.9; fz=14; sp=35;
       } else {
         bo=(inSlow?0.40:0.08) + (d.o||0) + thrustOpacityBoost;
         ho=(inSlow?0.80:0.15) + (d.o||0) + thrustOpacityBoost;
