@@ -1,6 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none">
-  <defs><filter id="g" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="1.5"/></filter></defs>
-  <path d="M9 7.5A3.5 3.5 0 1 1 9 14.5 3.5 3.5 0 0 1 9 7.5Zm6 2A2.5 2.5 0 1 1 15 14.5 2.5 2.5 0 0 1 15 9.5Z" stroke="#d1a0ff" stroke-width="1.3"/>
-  <path d="M4 18.2c1.6-2 3.2-2.8 5-2.8s3.5.8 5.1 2.8m.8-.8c1.2-1.3 2.4-1.8 3.7-1.8" stroke="#e0beff" stroke-width="1.4" stroke-linecap="round"/>
-  <path d="M4 18.2c1.6-2 3.2-2.8 5-2.8s3.5.8 5.1 2.8m.8-.8c1.2-1.3 2.4-1.8 3.7-1.8" stroke="#e0beff" stroke-width="1.4" stroke-linecap="round" filter="url(#g)"/>
-</svg>
