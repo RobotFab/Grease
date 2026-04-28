@@ -1595,7 +1595,7 @@ var ArduinoToolbarViewProvider = class {
           </div>
         </div>
         <div class="logo-area">
-          <img class="logo-img" id="logoImg" src="${iconUri}" />
+          <img class="logo-img" id="logoImg" src="${iconUri}" draggable="false" />
         </div>
       </div>
 
