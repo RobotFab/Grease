@@ -3,7 +3,7 @@
   "displayName": "Arduino Grease",
   "publisher": "RobotFab",
   "version": "0.3.3",
-  "description": "Arduino tooling + MCP server for agentic debugging inside VS Code, Cursor, and Antigravity. This package was developed by Andre Rosendo.",
+  "description": "Arduino tooling + MCP server for agentic debugging inside VS Code, Cursor, and Antigravity.",
   "main": "dist/extension.js",
   "icon": "icon.png",
   "scripts": {
