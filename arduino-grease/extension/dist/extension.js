@@ -390,11 +390,15 @@ var SerialMonitorPanel = class {
 
 // src/ui/serialPlotterPanel.ts
 var vscode3 = __toESM(require("vscode"));
-function parseFirstNumber(line) {
-  const m = line.match(/-?\d+(\.\d+)?/);
-  if (!m) return null;
-  const n = Number(m[0]);
-  return Number.isFinite(n) ? n : null;
+function parseAllNumbers(line) {
+  const matches = line.match(/-?\d+(?:\.\d+)?/g);
+  if (!matches) return [];
+  const numbers = [];
+  for (const m of matches) {
+    const n = Number(m);
+    if (Number.isFinite(n)) numbers.push(n);
+  }
+  return numbers;
 }
 var SerialPlotterPanel = class {
   constructor(output) {
@@ -446,8 +450,8 @@ var SerialPlotterPanel = class {
           const r = await serialRead();
           const points = [];
           for (const line of r.lines ?? []) {
-            const n = parseFirstNumber(String(line));
-            if (n !== null) points.push(n);
+            const numbers = parseAllNumbers(String(line));
+            if (numbers.length > 0) points.push(numbers);
           }
           if (points.length) this.panel?.webview.postMessage({ type: "points", points });
           this.panel?.webview.postMessage({ type: "status", status: r.serial });
@@ -607,23 +611,31 @@ var SerialPlotterPanel = class {
 
         ctx.shadowColor = "rgba(140,255,170,0.55)";
         ctx.shadowBlur = 10;
-        ctx.strokeStyle = "#7dff9e";
         ctx.lineWidth = 2.2;
-        ctx.beginPath();
-        for (let i = 0; i < series.length; i++) {
-          const x = x0 + (i / (maxPoints - 1)) * plotW;
-          const v = series[i];
-          const y = y0 - ((v - yMin) / (yMax - yMin)) * plotH;
-          if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        
+        const numSeries = series.length > 0 ? series[series.length - 1].length : 0;
+        const colors = ["#7dff9e", "#ff7d9e", "#9e7dff", "#ffff7d", "#7dffff", "#ffb47d"];
+        for (let s = 0; s < numSeries; s++) {
+          ctx.strokeStyle = colors[s % colors.length];
+          ctx.beginPath();
+          for (let i = 0; i < series.length; i++) {
+            if (s >= series[i].length) continue;
+            const x = x0 + (i / (maxPoints - 1)) * plotW;
+            const v = series[i][s];
+            const y = y0 - ((v - yMin) / (yMax - yMin)) * plotH;
+            if (i === 0 || s >= series[i-1].length) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+          }
+          ctx.stroke();
         }
-        ctx.stroke();
         ctx.shadowBlur = 0;
 
         ctx.fillStyle = "#8de0a0";
         ctx.font = "11px Consolas, Menlo, Monaco, monospace";
         ctx.fillText("min " + yMin.toFixed(2), x0, 14);
         ctx.fillText("max " + yMax.toFixed(2), x0 + 130, 14);
-        ctx.fillText("last " + series[series.length - 1].toFixed(3), x0 + 260, 14);
+        
+        const lastVals = series[series.length - 1] || [];
+        ctx.fillText("last " + lastVals.map(v => v.toFixed(3)).join(", "), x0 + 260, 14);
       }
 
       $("toggle").addEventListener("click", () => {
@@ -637,7 +649,10 @@ var SerialPlotterPanel = class {
           for (const p of msg.points) {
             series.push(p);
             if (series.length > maxPoints) series.shift();
-            if (p > yMax) yMax = p + 0.1;
+            for (const val of p) {
+              if (val > yMax) yMax = val + 0.1;
+              if (val < yMin) yMin = val - 0.1;
+            }
           }
           draw();
         } else if (msg.type === "status") {
@@ -1700,6 +1715,9 @@ let rainState='idle',extraDrops=[],thrustRightTimer=null,errorTimer=null;
 
 function setRainState(s){
   rainState=s;
+  if(s==='thrust'){
+    thrustOpacityBoost = 0.7;
+  }
   if(s!=='thrust'){
     extraDrops=[];
     thrustOpacityBoost = 0;
@@ -1735,10 +1753,10 @@ function drawRain(){
     else if(st==='bright'){bo=Math.min(1,(inSlow?0.40:0.03)+0.12);ho=Math.min(1,(inSlow?0.80:0.10)+0.50);fz=13;sp=inSlow?(3+(60-dist)*0.08):(1.2+Math.random()*0.6);}
     else if(st==='thrust'){
       if(d.rocket){
-        bo=0.5; ho=0.9; fz=14; sp=35;
+        bo=0.7; ho=0.7; fz=14; sp=35;
       } else {
-        bo=(inSlow?0.40:0.08) + (d.o||0) + thrustOpacityBoost;
-        ho=(inSlow?0.80:0.15) + (d.o||0) + thrustOpacityBoost;
+        bo=0.7;
+        ho=0.7;
         fz=inSlow?13:12;
         const normalSp = 7.5 * thrustSpeedMult;
         sp = inHalt ? 0 : (inSlow ? (1.2 + Math.random() * 0.6) : normalSp);
@@ -1848,6 +1866,8 @@ window.addEventListener('message', event => {
     if (errEl) errEl.textContent = msg.error || 'Unknown error';
   } else if (msg.type === 'uploadResult') {
     setRainState(msg.success ? 'idle' : 'error');
+  } else if (msg.type === 'rainState') {
+    setRainState(msg.state);
   } else if (msg.type === 'boards') {
     boards = Array.isArray(msg.rows) ? msg.rows : [];
     if (!selectedFqbn && boards.length) selectedFqbn = boards[0].fqbn;
@@ -2236,9 +2256,11 @@ async function activate(context) {
     }
     const uploadCmd = `$ arduino-cli upload -p ${port} --fqbn ${fqbn} "${sketchPath}"`;
     output.appendLine(uploadCmd);
+    toolbar.view?.webview.postMessage({ type: "rainState", state: "thrust" });
     const res = await runArduinoCli(["upload", "-p", port, "--fqbn", fqbn, sketchPath], sketchPath);
     output.appendLine(res.stdout);
     output.appendLine(res.stderr);
+    toolbar.view?.webview.postMessage({ type: "uploadResult", success: res.success });
     if (!res.success) {
       vscode8.window.showErrorMessage("Arduino Grease: Upload failed (see Output).");
       return false;
