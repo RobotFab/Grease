@@ -990,12 +990,12 @@ var ManagersPanel = class {
           post({ type: "boards", rows });
           this.output.appendLine(`[Mngrs] Loaded ${rows.length} installed boards.`);
         } else {
-          post({ type: "error", error: boards.stderr || boards.stdout });
+          post({ type: "error", error: "Failed. See Output > Arduino Grease." });
         }
       } else if (msg.type === "boardSearch") {
         const boards = await runArduinoCli(["core", "list", "--json"]);
         if (!boards.success) {
-          post({ type: "error", error: boards.stderr || boards.stdout });
+          post({ type: "error", error: "Failed. See Output > Arduino Grease." });
           return;
         }
         post({ type: "boards", rows: parseInstalledBoards(boards.stdout), query: String(msg.query ?? "") });
@@ -1383,7 +1383,8 @@ var ArduinoToolbarViewProvider = class {
     connectedPorts: [],
     serverRunning: false,
     serverHealthy: false,
-    lastScanAtMs: null
+    lastScanAtMs: null,
+    serialActive: false
   };
   setState(next) {
     this.state = next;
@@ -1451,12 +1452,12 @@ var ArduinoToolbarViewProvider = class {
             post({ type: "boards", rows });
             this.output.appendLine(`[Mngrs] Loaded ${rows.length} installed boards.`);
           } else {
-            post({ type: "mgrError", error: boards.stderr || boards.stdout });
+            post({ type: "mgrError", error: "Failed. See Output > Arduino Grease." });
           }
         } else if (msg.type === "boardSearch") {
           const boards = await runArduinoCli(["core", "list", "--json"]);
           if (!boards.success) {
-            post({ type: "mgrError", error: boards.stderr || boards.stdout });
+            post({ type: "mgrError", error: "Failed. See Output > Arduino Grease." });
             return;
           }
           post({ type: "boards", rows: parseInstalledBoards(boards.stdout), query: String(msg.query ?? "") });
@@ -1510,6 +1511,21 @@ var ArduinoToolbarViewProvider = class {
           } else {
             vscode7.window.showInformationMessage(`Arduino Grease: Library ${name} installed.`);
           }
+        } else if (msg.type === "toggleSerial") {
+          await vscode7.commands.executeCommand("arduinoMcp.toggleSerial");
+        } else if (msg.type === "libInstallGit") {
+          const input = String(msg.input ?? "").trim();
+          if (!input) return;
+          this.output.appendLine(`[Mngrs] Installing library from Github: ${input}...`);
+          const url = `https://github.com/${input}.git`;
+          const res = await runArduinoCli(["lib", "install", "--git-url", url]);
+          this.output.appendLine(res.stdout);
+          this.output.appendLine(res.stderr);
+          if (!res.success) {
+            post({ type: "mgrError", error: res.stderr || res.stdout });
+          } else {
+            vscode7.window.showInformationMessage(`Arduino Grease: Library ${input} installed.`);
+          }
         }
       } catch (e) {
         const err = e instanceof Error ? e.message : String(e);
@@ -1537,6 +1553,7 @@ var ArduinoToolbarViewProvider = class {
   a.c-green { color: #55efc4; } a.c-amber { color: #f6c542; } a.c-teal { color: #4ecdc4; }
   a.c-sky { color: #81ecec; } a.c-purple { color: #a29bfe; } a.c-blue { color: #74b9ff; }
   a.c-coral { color: #ff6b6b; } a.c-pink { color: #fd79a8; } a.c-std { color: var(--ink); }
+  a.serial-on { color: #49c06b !important; text-decoration: underline !important; }
   .ascii-line { font-family: var(--mono); font-size: 11px; color: var(--ink); white-space: pre; line-height: 1.6; display: block; }
   .dim { color: var(--muted); }
   .actions-wrap { margin-top: 6px; }
@@ -1580,7 +1597,7 @@ var ArduinoToolbarViewProvider = class {
           <div class="act-row"> <a class="c-teal"  href="#" onclick="cmd('arduinoMcp.startSketch');return false">||Start Sketch||</a></div>
           <div class="act-row"> <a class="c-coral"  href="#" onclick="onUploadClick();return false">||Upload||</a></div>
           <div class="act-row"> <a class="c-teal"   href="#" onclick="cmd('arduinoMcp.verify');return false">||Verify||</a></div>
-          <div class="act-row"> <a class="c-blue"    href="#" onclick="cmd('arduinoMcp.openSerialMonitor');return false">||Serial||</a></div>
+          <div class="act-row"> <a id="serialBtn" class="c-blue" href="#" onclick="toggleSerial();return false">||Serial||</a></div>
           <div class="act-row"> <a class="c-teal" href="#" onclick="cmd('arduinoMcp.openSerialPlotter');return false">||Plotter||</a></div>
           <div class="act-row"> <a class="c-blue"   href="#" onclick="switchTab('examples');return false">||Examples||</a></div>
           <div class="act-row"> <a class="c-teal"  href="#" onclick="switchTab('managers');return false">||Managers||</a></div>
@@ -1590,8 +1607,8 @@ var ArduinoToolbarViewProvider = class {
         <div class="server-section">
           AI Tether <a class="dim" href="#" onclick="cmd('arduinoMcp.refreshServer');return false">||R||</a>
           <div class="server-line">
-            <span class="sblock" id="serverBlock" style="color:#49c06b" onclick="cmd('arduinoMcp.toggleServer')">&#x2588;</span>
-            <span style="color:var(--muted);font-size:10px" id="serverStatus">running</span>
+            <span class="sblock serverBlock" style="color:#49c06b" onclick="cmd('arduinoMcp.toggleServer')">&#x2588;</span>
+            <span style="color:var(--muted);font-size:10px" class="serverStatus">running</span>
           </div>
         </div>
         <div class="logo-area">
@@ -1604,7 +1621,6 @@ var ArduinoToolbarViewProvider = class {
           <span class="mgr-label"><a class="c-coral" href="#" onclick="switchTab('board');return false" style="margin-right:4px">||R||</a>Mngrs</span>
           <a class="c-std" id="updateIdx" href="#" onclick="event.preventDefault()">||Update indexes||</a>
         </div>
-        <div id="mgrErr" style="color:#ffb4b4;white-space:pre-wrap;font-size:10px;margin-bottom:4px"></div>
         <div class="mgr-section">
           <div class="mgr-section-title">Library</div>
           <div class="mgr-card">
@@ -1628,9 +1644,10 @@ var ArduinoToolbarViewProvider = class {
           </div>
         </div>
         <div class="mgr-card" style="margin-top: 9px;">
-          <div class="muted" style="font-size: 11px;">
-            Install a library from github with the terminal commands, such as 'arduino-cli lib install --git-url https://github.com/arduino-libraries/WiFi101.git'
+          <div class="muted" style="font-size: 10px; margin-bottom: 4px;">
+            Install library from Github (e.g. arduino-libraries/WiFi101)
           </div>
+          <input id="libGitInput" placeholder="user/repo" onkeydown="if(event.key==='Enter') { vscode.postMessage({type:'libInstallGit', input:this.value}); this.value=''; }" />
         </div>
       </div>
 
@@ -1670,11 +1687,19 @@ var ArduinoToolbarViewProvider = class {
               My robot has &lt;mech&gt; a 2 inch wheel &lt;/mech&gt; and is using &lt;control&gt; a PD controller &lt;/control&gt;
             </div>
             <p style="margin-top: 8px;">
-              You can also create your own skills (for example, a skill &lt;learning&gt; could specify a preferred deep Q-learning strategy), or &lt;references&gt; could aggregate datasheets from different modules. Modify SKILL.md accordingly!
+              You can also create your own skills (for example, a skill &lt;learning&gt; could specify a preferred deep Q-learning strategy, or &lt;references&gt; could aggregate datasheets from different modules).
             </p>
+            <br>
             <p>
-              Make sure your AI Tether (MCP Server) is running, and that you lay out in your prompt the logic flow needed to achieve that goal.
+              Make sure your AI Tether is running, and that you clearly prompt the logic flow needed to achieve your goal.
             </p>
+          </div>
+        </div>
+        <div class="server-section" style="margin-top: 8px;">
+          AI Tether <a class="dim" href="#" onclick="cmd('arduinoMcp.refreshServer');return false">||R||</a>
+          <div class="server-line">
+            <span class="sblock serverBlock" style="color:#49c06b" onclick="cmd('arduinoMcp.toggleServer')">&#x2588;</span>
+            <span style="color:var(--muted);font-size:10px" class="serverStatus">running</span>
           </div>
         </div>
       </div>
@@ -1813,12 +1838,20 @@ document.addEventListener('mouseup',e=>{
 document.addEventListener('contextmenu',e=>{if(rainState==='thrust')e.preventDefault();});
 
 
+function toggleSerial() { vscode.postMessage({ type: 'toggleSerial' }); }
 function setServer(state) {
-  const block = document.getElementById('serverBlock');
-  const status = document.getElementById('serverStatus');
-  if (!state.serverRunning) { block.style.color='#593b3bff'; status.textContent='stopped'; return; }
-  if (state.serverHealthy) { block.style.color='#49c06b'; status.textContent='running'; return; }
-  block.style.color='#d2b046'; status.textContent='starting...';
+  const blocks = document.querySelectorAll('.serverBlock');
+  const statuses = document.querySelectorAll('.serverStatus');
+  blocks.forEach(block => {
+    if (!state.serverRunning) block.style.color='#593b3bff';
+    else if (state.serverHealthy) block.style.color='#49c06b';
+    else block.style.color='#d2b046';
+  });
+  statuses.forEach(status => {
+    if (!state.serverRunning) status.textContent='stopped';
+    else if (state.serverHealthy) status.textContent='running';
+    else status.textContent='starting...';
+  });
 }
 
 let exRows = [];
@@ -1851,6 +1884,11 @@ window.addEventListener('message', event => {
     document.getElementById('portVal').textContent = s.port || '?';
     document.getElementById('fqbnVal').textContent = s.fqbn || '?';
     setServer(s);
+    const sBtn = document.getElementById('serialBtn');
+    if (sBtn) {
+      if (s.serialActive) sBtn.classList.add('serial-on');
+      else sBtn.classList.remove('serial-on');
+    }
   } else if (msg.type === 'verifyResult') {
     if(msg.success && rainState === 'thrust') {
       thrustOpacityBoost += 0.1;
@@ -1995,6 +2033,11 @@ async function activate(context) {
     output.appendLine("Arduino Grease server stopped.");
   };
   await startServer();
+  try {
+    await runArduinoCli(["config", "set", "library.enable_unsafe_install", "true"]);
+  } catch (e) {
+    output.appendLine("Failed to enable unsafe install: " + String(e));
+  }
   context.subscriptions.push({
     dispose: () => {
       void stopServer();
@@ -2045,7 +2088,8 @@ async function activate(context) {
       connectedPorts: Array.from(lastPorts),
       serverRunning: serverProcess !== null,
       serverHealthy,
-      lastScanAtMs
+      lastScanAtMs,
+      serialActive: serialMonitorPanel.isConnected
     });
   };
   const setWarning = (text) => {
@@ -2469,6 +2513,14 @@ async function activate(context) {
     vscode8.commands.registerCommand("arduinoMcp.selectTarget", async () => {
       await refreshPortsAndBoard();
     }),
+    vscode8.commands.registerCommand("arduinoMcp.toggleSerial", async () => {
+      if (serialMonitorPanel.isConnected) {
+        await serialMonitorPanel.stop();
+      } else {
+        await vscode8.commands.executeCommand("arduinoMcp.openSerialMonitor");
+      }
+      refreshToolbarState();
+    }),
     vscode8.commands.registerCommand("arduinoMcp.openSerialMonitor", async () => {
       output.show(true);
       const defaultPort = currentTarget?.port ?? lastCandidates[0]?.port ?? null;
@@ -2492,9 +2544,13 @@ async function activate(context) {
       output.show(true);
       const defaultPort = currentTarget?.port ?? lastCandidates[0]?.port ?? null;
       serialPlotterPanel.show(defaultPort, true);
+      if (!serialMonitorPanel.isConnected && defaultPort) {
+        await serialMonitorPanel.start(defaultPort, 9600);
+      }
       setTimeout(() => {
         void vscode8.commands.executeCommand("workbench.action.moveEditorToNewWindow");
       }, 200);
+      refreshToolbarState();
     }),
     vscode8.commands.registerCommand("arduinoMcp.openExamples", async () => {
       output.show(true);

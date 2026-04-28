@@ -43,3 +43,8 @@ export async function uploadSketch({ fqbn, port, sketchPath }) {
   return runProcess(cmd, ["upload", "-p", port, "--fqbn", fqbn, sketchPath]);
 }
 
+export async function enableUnsafeInstall() {
+  const cmd = getArduinoCliPath();
+  return runProcess(cmd, ["config", "set", "library.enable_unsafe_install", "true"]);
+}
+

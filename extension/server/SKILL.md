@@ -12,7 +12,7 @@
 - **Extension**: Arduino Grease (VS Code / Cursor / Antigravity)
 - **MCP Server**: local Node.js process at `127.0.0.1:PORT`
 - **Hardware target**: defined in extension state (`getState` tool)
-- **Higher goal**: Act as a bridge between the goals of the user and the Arduino micro-controller (robot).
+- **Higher goal**: Act as a bridge between the goals of the user and the Arduino micro-controller (robot). Use when the user interacts with any microcontroller, uploading sketches to the board and analyzing the data going both ways on Serial.
 
 ---
 
@@ -22,7 +22,7 @@
 2. **Never hard-code port or fqbn.** Always read them from `getState` or prompt the user via the extension.
 3. **Compile before upload.** Call `compileSketch` and confirm success before calling `uploadSketch`.
 4. **Use the Serial Monitor to verify behaviour.** After uploading, open serial (`serialOpen`) and read output (`serialRead`) to confirm the sketch is behaving as expected.
-5. **Iterate incrementally.** Make one logical change at a time, compile, check output, then proceed.
+5. **Iterate incrementally.** Make one logical change at a time, compile, check output, then proceed. When possible, read the serial output to confirm the sketch is behaving as expected and propose changes based on that reading to the user.
 6. **Do not block the Serial port unnecessarily.** Call `serialClose` when reading is complete.
 
 ---
@@ -34,6 +34,7 @@
 - Keep sketches modular: setup, loop, and named helper functions.
 - Comment all non-obvious hardware interactions (pin assignments, timing rationale).
 - Target C++11 idioms compatible with Arduino AVR/SAMD toolchains.
+- If the user does not specify where to save the AI created sketch, save it in the root of the project as 'grease-X.ino', and remind the user of that sketch and its location. Where X is a number starting from 1, and incrementing for each new sketch.
 
 ---
 

@@ -8,7 +8,7 @@ import { NodeStreamableHTTPServerTransport } from "@modelcontextprotocol/node";
 import { McpServer } from "@modelcontextprotocol/server";
 import express from "express";
 
-import { detectBoards, compileSketch, uploadSketch } from "./lib/arduinoCli.mjs";
+import { detectBoards, compileSketch, uploadSketch, enableUnsafeInstall } from "./lib/arduinoCli.mjs";
 import { SerialManager } from "./lib/serialManager.mjs";
 
 const PORT = Number(process.env.MCP_PORT || process.env.PORT || "3333");
@@ -46,6 +46,12 @@ async function main() {
   console.log("=== Arduino Grease SKILL.md ===");
   console.log(readSkillMd());
   console.log("================================");
+  
+  try {
+    await enableUnsafeInstall();
+  } catch (e) {
+    console.error("Failed to enable unsafe install:", e);
+  }
 
   const server = new McpServer(
     { name: "arduino-mcp", version: "0.1.0" },
