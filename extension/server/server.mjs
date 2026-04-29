@@ -47,16 +47,10 @@ async function main() {
   console.log(readSkillMd());
   console.log("================================");
   
-  try {
-    await enableUnsafeInstall();
-    await installLibrary("Romi32U4");
-    await installLibrary("wpi-32u4-library-with-bluemotor");
-  } catch (e) {
-    console.error("Failed to enable unsafe install or install default libs:", e);
-  }
+
 
   const server = new McpServer(
-    { name: "arduino-mcp", version: "1.0.0" },
+    { name: "arduino-mcp", version: "1.0" },
     { capabilities: { tools: {} } }
   );
 
@@ -277,6 +271,17 @@ async function main() {
   httpServer.listen(PORT, HOST, () => {
     // eslint-disable-next-line no-console
     console.log(`Arduino MCP server listening on http://${HOST}:${PORT} (MCP at /mcp)`);
+
+    // Run library installations in the background so as not to block server startup
+    void (async () => {
+      try {
+        await enableUnsafeInstall();
+        await installLibrary("Romi32U4");
+        await installLibrary("wpi-32u4-library-with-bluemotor");
+      } catch (e) {
+        console.error("Background task failed:", e);
+      }
+    })();
   });
 
   const shutdown = async () => {

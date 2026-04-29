@@ -2359,6 +2359,7 @@ async function activate(context) {
     }
   });
   await reconcileTarget();
+  await delay(3000);
   await checkServerHealth(true);
   const targetInterval = setInterval(() => {
     void reconcileTarget();
