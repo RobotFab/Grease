@@ -1,7 +1,16 @@
+import path from "node:path";
 import { runProcess } from "./runProcess.mjs";
 
 function getArduinoCliPath() {
   return process.env.ARDUINO_CLI_PATH || "arduino-cli";
+}
+
+function normalizeSketchPath(sketchPath) {
+  const resolved = path.resolve(String(sketchPath || ""));
+  if (path.extname(resolved).toLowerCase() === ".ino") {
+    return path.dirname(resolved);
+  }
+  return resolved;
 }
 
 /**
@@ -32,7 +41,7 @@ export async function detectBoards() {
  */
 export async function compileSketch({ fqbn, sketchPath }) {
   const cmd = getArduinoCliPath();
-  return runProcess(cmd, ["compile", "--fqbn", fqbn, sketchPath]);
+  return runProcess(cmd, ["compile", "--fqbn", fqbn, normalizeSketchPath(sketchPath)]);
 }
 
 /**
@@ -40,7 +49,7 @@ export async function compileSketch({ fqbn, sketchPath }) {
  */
 export async function uploadSketch({ fqbn, port, sketchPath }) {
   const cmd = getArduinoCliPath();
-  return runProcess(cmd, ["upload", "-p", port, "--fqbn", fqbn, sketchPath]);
+  return runProcess(cmd, ["upload", "-p", port, "--fqbn", fqbn, normalizeSketchPath(sketchPath)]);
 }
 
 export async function enableUnsafeInstall() {

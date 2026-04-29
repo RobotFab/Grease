@@ -7,6 +7,7 @@ import { createMcpExpressApp } from "@modelcontextprotocol/express";
 import { NodeStreamableHTTPServerTransport } from "@modelcontextprotocol/node";
 import { McpServer } from "@modelcontextprotocol/server";
 import express from "express";
+import { z } from "zod";
 
 import { detectBoards, compileSketch, uploadSketch, enableUnsafeInstall, installLibrary } from "./lib/arduinoCli.mjs";
 import { SerialManager } from "./lib/serialManager.mjs";
@@ -24,6 +25,11 @@ const state = {
 };
 
 const serial = new SerialManager();
+
+function resolveSketchPath(sketchPath) {
+  if (!sketchPath) return state.sketchPath;
+  return path.resolve(sketchPath);
+}
 
 function asTextResult(obj) {
   return {
@@ -46,12 +52,17 @@ async function main() {
   console.log("=== Arduino Grease SKILL.md ===");
   console.log(readSkillMd());
   console.log("================================");
-  
+
 
 
   const server = new McpServer(
     { name: "arduino-mcp", version: "1.0" },
-    { capabilities: { tools: {} } }
+    {
+      capabilities: {
+        tools: {},
+        tasks: { requests: { tools: { call: {} } } },
+      },
+    }
   );
 
   // ── SKILL tool ─────────────────────────────────────────────────────────────
@@ -63,30 +74,32 @@ async function main() {
         "Returns the content of SKILL.md, which defines robot-specific behaviours, " +
         "constraints, and preferences for this project. Always call this tool at the " +
         "start of every session before writing or uploading any code.",
-      inputSchema: {},
+      inputSchema: z.object({}).strict(),
     },
     async () => asTextResult({ skill: readSkillMd(), path: SKILL_PATH })
   );
 
   // ── Board tools ─────────────────────────────────────────────────────────────
-  server.registerTool("detectBoards", { title: "Detect connected Arduino boards", inputSchema: {} }, async () => {
-    const result = await detectBoards();
-    return asTextResult(result);
-  });
+  server.registerTool(
+    "detectBoards",
+    {
+      title: "Detect connected Arduino boards",
+      inputSchema: z.object({}).strict(),
+    },
+    async () => {
+      const result = await detectBoards();
+      return asTextResult(result);
+    }
+  );
 
   server.registerTool(
     "setTarget",
     {
       title: "Set Arduino target (port + fqbn)",
-      inputSchema: {
-        type: "object",
-        properties: {
-          port: { type: "string" },
-          fqbn: { type: "string" },
-        },
-        required: ["port", "fqbn"],
-        additionalProperties: false,
-      },
+      inputSchema: z.object({
+        port: z.string(),
+        fqbn: z.string(),
+      }).strict(),
     },
     async ({ port, fqbn }) => {
       state.target.port = port;
@@ -95,29 +108,36 @@ async function main() {
     }
   );
 
-  server.registerTool("getState", { title: "Get current server state", inputSchema: {} }, async () => {
-    return asTextResult({ ...state, serial: serial.status() });
-  });
+  server.registerTool(
+    "getState",
+    {
+      title: "Get current server state",
+      inputSchema: z.object({}).strict(),
+    },
+    async () => {
+      return asTextResult({ ...state, serial: serial.status() });
+    }
+  );
 
   server.registerTool(
     "compileSketch",
     {
       title: "Compile sketch folder with current fqbn",
-      inputSchema: {
-        type: "object",
-        properties: {
-          sketchPath: { type: "string" },
-          fqbn: { type: "string" },
-        },
-        required: ["sketchPath"],
-        additionalProperties: false,
-      },
+      inputSchema: z.object({
+        sketchPath: z.string().optional(),
+        fqbn: z.string().optional(),
+      }).strict(),
     },
     async ({ sketchPath, fqbn }) => {
       const effectiveFqbn = fqbn || state.target.fqbn;
       if (!effectiveFqbn) return asTextResult({ success: false, error: "Target fqbn not set" });
-      const result = await compileSketch({ fqbn: effectiveFqbn, sketchPath });
-      return asTextResult(result);
+      const effectiveSketchPath = resolveSketchPath(sketchPath);
+      if (!fs.existsSync(effectiveSketchPath)) {
+        return asTextResult({ success: false, error: `Sketch path not found: ${effectiveSketchPath}` });
+      }
+      state.sketchPath = effectiveSketchPath;
+      const result = await compileSketch({ fqbn: effectiveFqbn, sketchPath: effectiveSketchPath });
+      return asTextResult({ ...result, sketchPath: effectiveSketchPath });
     }
   );
 
@@ -125,16 +145,11 @@ async function main() {
     "uploadSketch",
     {
       title: "Upload sketch folder to current port/fqbn",
-      inputSchema: {
-        type: "object",
-        properties: {
-          sketchPath: { type: "string" },
-          fqbn: { type: "string" },
-          port: { type: "string" },
-        },
-        required: ["sketchPath"],
-        additionalProperties: false,
-      },
+      inputSchema: z.object({
+        sketchPath: z.string().optional(),
+        fqbn: z.string().optional(),
+        port: z.string().optional(),
+      }).strict(),
     },
     async ({ sketchPath, fqbn, port }) => {
       const effectiveFqbn = fqbn || state.target.fqbn;
@@ -142,8 +157,13 @@ async function main() {
       if (!effectiveFqbn || !effectivePort) {
         return asTextResult({ success: false, error: "Target port/fqbn not set" });
       }
-      const result = await uploadSketch({ fqbn: effectiveFqbn, port: effectivePort, sketchPath });
-      return asTextResult(result);
+      const effectiveSketchPath = resolveSketchPath(sketchPath);
+      if (!fs.existsSync(effectiveSketchPath)) {
+        return asTextResult({ success: false, error: `Sketch path not found: ${effectiveSketchPath}` });
+      }
+      state.sketchPath = effectiveSketchPath;
+      const result = await uploadSketch({ fqbn: effectiveFqbn, port: effectivePort, sketchPath: effectiveSketchPath });
+      return asTextResult({ ...result, sketchPath: effectiveSketchPath });
     }
   );
 
@@ -152,16 +172,11 @@ async function main() {
     "serialOpen",
     {
       title: "Open serial port",
-      inputSchema: {
-        type: "object",
-        properties: {
-          path: { type: "string" },
-          baudRate: { type: "number" },
-          delimiter: { type: "string" },
-        },
-        required: ["path", "baudRate"],
-        additionalProperties: false,
-      },
+      inputSchema: z.object({
+        path: z.string(),
+        baudRate: z.number(),
+        delimiter: z.string().optional(),
+      }).strict(),
     },
     async ({ path, baudRate, delimiter }) => {
       await serial.open({ path, baudRate, delimiter });
@@ -173,12 +188,9 @@ async function main() {
     "serialWrite",
     {
       title: "Write to serial port",
-      inputSchema: {
-        type: "object",
-        properties: { data: { type: "string" } },
-        required: ["data"],
-        additionalProperties: false,
-      },
+      inputSchema: z.object({
+        data: z.string(),
+      }).strict(),
     },
     async ({ data }) => {
       await serial.write({ data });
@@ -190,11 +202,9 @@ async function main() {
     "serialRead",
     {
       title: "Read buffered serial lines",
-      inputSchema: {
-        type: "object",
-        properties: { clear: { type: "boolean" } },
-        additionalProperties: false,
-      },
+      inputSchema: z.object({
+        clear: z.boolean().optional(),
+      }).strict(),
     },
     async ({ clear }) => {
       const lines = serial.read({ clear });
@@ -202,10 +212,17 @@ async function main() {
     }
   );
 
-  server.registerTool("serialClose", { title: "Close serial port", inputSchema: {} }, async () => {
-    await serial.close();
-    return asTextResult({ success: true, serial: serial.status() });
-  });
+  server.registerTool(
+    "serialClose",
+    {
+      title: "Close serial port",
+      inputSchema: z.object({}).strict(),
+    },
+    async () => {
+      await serial.close();
+      return asTextResult({ success: true, serial: serial.status() });
+    }
+  );
 
   const transport = new NodeStreamableHTTPServerTransport({
     sessionIdGenerator: () => randomUUID(),
@@ -217,7 +234,7 @@ async function main() {
     allowedHosts: ["localhost", "127.0.0.1"],
   });
 
-  app.use(express.json());
+  app.use(express.json({ limit: "1mb" }));
 
   // ── Auth middleware ─────────────────────────────────────────────────────────
   // All routes except /health require the shared auth key.
@@ -264,7 +281,12 @@ async function main() {
   });
 
   app.post("/mcp", async (req, res) => {
-    await transport.handleRequest(req, res);
+    const requestBody = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
+    try {
+      await transport.handleRequest(req, res, requestBody);
+    } catch (error) {
+      res.status(500).json({ ok: false, error: error?.message ?? String(error) });
+    }
   });
 
   const httpServer = http.createServer(app);
