@@ -7,12 +7,14 @@ Arduino tooling + a bundled local MCP server for **agentic debugging** inside VS
 ### Prerequisites (Important!)
 - Node.js
 - `arduino-cli` installed (and accessible on `PATH`)
-- For Windows users, install them here (<a href="https://downloads.arduino.cc/arduino-cli/arduino-cli_latest_Windows_64bit.msi">arduino-cli</a>, <a href="https://nodejs.org/dist/v24.15.0/node-v24.15.0-arm64.msi">Node</a> and <a href="https://github.com/git-for-windows/git/releases/download/v2.54.0.windows.1/Git-2.54.0-64-bit.exe">Git (recommended)</a>)
+- For Windows users, install them here (<a href="https://downloads.arduino.cc/arduino-cli/arduino-cli_latest_Windows_64bit.msi">arduino-cli Installer</a>, <a href="https://nodejs.org/en/download">Node Installer</a> and <a href="https://github.com/git-for-windows/git/releases/download/v2.54.0.windows.1/Git-2.54.0-64-bit.exe">Git Installer(recommended)</a>)
 - For Mac/Linux users, install them here (<a href="https://arduino.github.io/arduino-cli/1.4/installation/">arduino-cli</a>, <a href="https://nodejs.org/en/download">Node</a> and <a href="https://git-scm.com/install/">Git (recommended)</a>)
+- Restart your VS Code (maybe PC?) after it. Test "node -v" and "arduino-cli -v" on command.
+- Make sure your AI Tether is running.
 
 ### What this extension does (MVP)
 - Connects to your microcontroller using arduino-cli, but communicates through Serial Port using a node.js MCP server.
-- Starts a bundled MCP server at `127.0.0.1:3333` (MCP endpoint: `/mcp`, health: `/health`) to handle the communication.
+- Starts a bundled MCP server (random Auth) at `127.0.0.1:333X` (MCP endpoint: `/mcp`, health: `/health`) to handle the communication.
 - Runs a SKILL file at the MCP, defining embedded debugging tools for agents.
 - Auto-selects a target if exactly one recognized board is present; otherwise prompts you to pick.
 - Adds Activity Bar actions for Verify/Upload/Serial Monitor/Serial Plotter/Examples/Managers/Board Template, to create an user friendly environment.
