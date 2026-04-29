@@ -8,7 +8,7 @@ import { NodeStreamableHTTPServerTransport } from "@modelcontextprotocol/node";
 import { McpServer } from "@modelcontextprotocol/server";
 import express from "express";
 
-import { detectBoards, compileSketch, uploadSketch, enableUnsafeInstall } from "./lib/arduinoCli.mjs";
+import { detectBoards, compileSketch, uploadSketch, enableUnsafeInstall, installLibrary } from "./lib/arduinoCli.mjs";
 import { SerialManager } from "./lib/serialManager.mjs";
 
 const PORT = Number(process.env.MCP_PORT || process.env.PORT || "3333");
@@ -49,12 +49,14 @@ async function main() {
   
   try {
     await enableUnsafeInstall();
+    await installLibrary("Romi32U4");
+    await installLibrary("wpi-32u4-library-with-bluemotor");
   } catch (e) {
-    console.error("Failed to enable unsafe install:", e);
+    console.error("Failed to enable unsafe install or install default libs:", e);
   }
 
   const server = new McpServer(
-    { name: "arduino-mcp", version: "0.1.0" },
+    { name: "arduino-mcp", version: "1.0.0" },
     { capabilities: { tools: {} } }
   );
 

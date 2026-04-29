@@ -48,3 +48,8 @@ export async function enableUnsafeInstall() {
   return runProcess(cmd, ["config", "set", "library.enable_unsafe_install", "true"]);
 }
 
+export async function installLibrary(name) {
+  const cmd = getArduinoCliPath();
+  return runProcess(cmd, ["lib", "install", name]);
+}
+

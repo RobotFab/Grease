@@ -829,7 +829,6 @@ var ExamplesPanel = class {
       .title { font-weight:700; font-size:11px; overflow-wrap:anywhere; color:var(--soft); }
       .meta { font-size:10px; color:var(--muted); margin-top:2px; overflow-wrap:anywhere; }
       .row { display:flex; gap:8px; align-items:flex-end; }
-      .refresh { width:30px; text-align:center; font-size:13px; border:1px solid var(--stroke); border-radius:6px; padding:4px 0; color:var(--soft); background:#0d130d; }
     </style>
   </head>
   <body>
@@ -839,7 +838,6 @@ var ExamplesPanel = class {
           <div class="muted">Search Text</div>
           <input id="query" placeholder="blink, imu, wifi" />
         </div>
-        <a class="refresh" href="#" onclick="vscode.postMessage({type:'list',library:''});return false">\u21BB</a>
         <div>
           <div class="muted">Library name</div>
           <input id="library" placeholder="wire, serv" />
@@ -2550,7 +2548,7 @@ async function activate(context) {
       }
       setTimeout(() => {
         void vscode8.commands.executeCommand("workbench.action.moveEditorToNewWindow");
-      }, 200);
+      }, 350);
       refreshToolbarState();
     }),
     vscode8.commands.registerCommand("arduinoMcp.openExamples", async () => {

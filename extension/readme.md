@@ -4,9 +4,11 @@ tl;dr Program robots to do what you say and let them help debug themselves throu
 
 Arduino tooling + a bundled local MCP server for **agentic debugging** inside VS Code, Cursor, and Antigravity.
 
-### Prerequisites
+### Prerequisites (Important!)
 - Node.js
 - `arduino-cli` installed (and accessible on `PATH`)
+- For Windows users, install them here (<a href="https://downloads.arduino.cc/arduino-cli/arduino-cli_latest_Windows_64bit.msi">arduino-cli</a>, <a href="https://nodejs.org/dist/v24.15.0/node-v24.15.0-arm64.msi">Node</a> and <a href="https://github.com/git-for-windows/git/releases/download/v2.54.0.windows.1/Git-2.54.0-64-bit.exe">Git (recommended)</a>)
+- For Mac/Linux users, install them here (<a href="https://arduino.github.io/arduino-cli/1.4/installation/">arduino-cli</a>, <a href="https://nodejs.org/en/download">Node</a> and <a href="https://git-scm.com/install/">Git (recommended)</a>)
 
 ### What this extension does (MVP)
 - Connects to your microcontroller using arduino-cli, but communicates through Serial Port using a node.js MCP server.
@@ -17,23 +19,7 @@ Arduino tooling + a bundled local MCP server for **agentic debugging** inside VS
 
 ### Inspiration
 
-Most AI tooling lives in a sandbox. Robotics doesn’t.
-
-Serial output is where things get real — noisy sensors, bad calibration, weird edge cases. That’s exactly where agents should be looking.
-
-Arduino Grease lets an AI agent:
-
-Read Serial output
-Interpret what’s happening
-Adjust code or parameters accordingly
-
-Not simulation. Not guesses.
-Feedback from the physical world.
-
 This was inspired by my work in 2015 on the "Mother Robot" a system that could build and improve its own “children.”
-
-One of the biggest limitations wasn’t intelligence.
-It was communication.
 
 The robots couldn’t effectively talk to themselves about what was happening in the real world, relying on us to be their sensors in the real world. We still are, but mostly setting goals.
 
@@ -46,14 +32,11 @@ npm run build
 npx @vscode/vsce package --skip-license --allow-missing-repository
 ```
 
-2. Install the generated `arduino-grease-0.2.7.vsix` from your IDE’s extension installer (VS Code/Cursor/Antigravity/Other VS-based IDEs).
+2. Install the generated `arduino-grease-1.0.0.vsix` from your IDE’s extension installer (VS Code/Cursor/Antigravity/Other VS-based IDEs).
 
 ### Credits
 
 As I always told my students, "If mechanical engineers are the knights, and computer scientists are wizards, then we roboticists are the paladins." 
-
-We’re forging something abstract into something physical.
-The future of robotics may end up being more mechanical than we expect.
 
 Designing algorithms is getting easier.
 The real bottleneck is where code meets metal.
