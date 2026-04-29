@@ -21,7 +21,7 @@ Arduino tooling + a bundled local MCP server for **agentic debugging** inside VS
 
 This was inspired by my work in 2015 on the "Mother Robot" a system that could build and improve its own “children.”
 
-The robots couldn’t effectively talk to themselves about what was happening in the real world, relying on us to be their sensors in the real world. We still are, but mostly setting goals.
+The robots couldn’t effectively talk to themselves about what was happening in the real world, relying on us to be their sensors and set goals. Now they can debug themselves, while we set their goals.
 
 ### Install (VSIX / VSX)
 1. Build and package:
