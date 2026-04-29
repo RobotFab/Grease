@@ -38,7 +38,7 @@ npx @vscode/vsce package --skip-license --allow-missing-repository
 
 As I always told my students, "If mechanical engineers are the knights, and computer scientists are wizards, then we roboticists are the paladins." 
 
-Designing algorithms is getting easier.
-The real bottleneck is where code meets metal.
+Designing algorithms is getting easier, and the next frontier is experimental.
+The real Robotics bottleneck is where code meets metal.
 
 This package was developed by Prof. Andre Rosendo.
