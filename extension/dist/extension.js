@@ -72,7 +72,8 @@ async function startBundledServer(context, output, preferredPort = 3333) {
   output.appendLine(`Starting bundled Arduino MCP server on port ${port}...`);
   const child = (0, import_node_child_process.spawn)(nodePath, [serverPath], {
     cwd: context.extensionPath,
-    env: { ...process.env, MCP_PORT: String(port), MCP_HOST: "127.0.0.1", MCP_AUTH_KEY: authKey }
+    env: { ...process.env, MCP_PORT: String(port), MCP_HOST: "127.0.0.1", MCP_AUTH_KEY: authKey },
+    shell: os.platform() === "win32"
   });
   child.stdout.on("data", (d) => output.appendLine(`[server] ${String(d).trimEnd()}`));
   child.stderr.on("data", (d) => output.appendLine(`[server:err] ${String(d).trimEnd()}`));
@@ -101,7 +102,7 @@ var import_node_child_process2 = require("node:child_process");
 async function runArduinoCli(args, cwd) {
   const cmd = process.env.ARDUINO_CLI_PATH || "arduino-cli";
   return new Promise((resolve) => {
-    const child = (0, import_node_child_process2.spawn)(cmd, args, { cwd, env: process.env, shell: false });
+    const child = (0, import_node_child_process2.spawn)(cmd, args, { cwd, env: process.env, shell: os.platform() === "win32" });
     let stdout = "";
     let stderr = "";
     child.stdout.on("data", (d) => stdout += d.toString());
@@ -746,7 +747,7 @@ var ExamplesPanel = class {
       const b = await runArduinoCli(argsBoard);
       if (b.success) rows = rows.concat(asRows(JSON.parse(b.stdout)));
     }
-    const customLibPath = "/Users/arosendo/Documents/Arduino/libraries/AdvancedAnalog/";
+    const customLibPath = path3.join(os.homedir(), "Documents", "Arduino", "libraries", "AdvancedAnalog");
     if (fs2.existsSync(customLibPath)) {
       const exDir = path3.join(customLibPath, "examples");
       if (fs2.existsSync(exDir)) {

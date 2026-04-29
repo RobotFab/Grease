@@ -11,7 +11,7 @@ export function runProcess(command, args, options = {}) {
     const child = spawn(command, args, {
       cwd: options.cwd,
       env: { ...process.env, ...(options.env ?? {}) },
-      shell: false,
+      shell: process.platform === "win32",
     });
 
     let stdout = "";

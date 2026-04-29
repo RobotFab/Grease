@@ -11,7 +11,7 @@
     "build": "node ./scripts/build.mjs",
     "watch": "node ./scripts/build.mjs --watch",
     "lint": "eslint .",
-    "package": "npm run build && npx @vscode/vsce package --allow-missing-repository"
+    "package": "npx @vscode/vsce package --allow-missing-repository"
   },
   "keywords": [],
   "author": "Andre Rosendo",
