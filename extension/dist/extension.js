@@ -73,7 +73,7 @@ async function startBundledServer(context, output, preferredPort = 3333) {
   const child = (0, import_node_child_process.spawn)(nodePath, [serverPath], {
     cwd: context.extensionPath,
     env: { ...process.env, MCP_PORT: String(port), MCP_HOST: "127.0.0.1", MCP_AUTH_KEY: authKey },
-    shell: os.platform() === "win32"
+    shell: false
   });
   child.stdout.on("data", (d) => output.appendLine(`[server] ${String(d).trimEnd()}`));
   child.stderr.on("data", (d) => output.appendLine(`[server:err] ${String(d).trimEnd()}`));
@@ -492,6 +492,7 @@ var SerialPlotterPanel = class {
   }
   html(defaultPort) {
     const portValue = defaultPort ? defaultPort.replaceAll('"', "&quot;") : "";
+    const placeholder = os.platform() === "win32" ? "COM1" : "/dev/cu.usbmodem...";
     return `<!doctype html>
 <html>
   <head>
@@ -540,7 +541,7 @@ var SerialPlotterPanel = class {
       <div class="row">
         <div>
           <label>Port</label><br/>
-          <input id="port" placeholder="/dev/cu.usbmodem..." value="${portValue}"/>
+          <input id="port" placeholder="${placeholder}" value="${portValue}"/>
         </div>
         <div>
           <label>Baud</label><br/>
