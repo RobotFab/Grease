@@ -136,6 +136,7 @@ async function main() {
         return asTextResult({ success: false, error: `Sketch path not found: ${effectiveSketchPath}` });
       }
       state.sketchPath = effectiveSketchPath;
+      console.log(`Compiling sketch: ${effectiveSketchPath} with fqbn: ${effectiveFqbn}`);
       const result = await compileSketch({ fqbn: effectiveFqbn, sketchPath: effectiveSketchPath });
       return asTextResult({ ...result, sketchPath: effectiveSketchPath });
     }
@@ -162,6 +163,7 @@ async function main() {
         return asTextResult({ success: false, error: `Sketch path not found: ${effectiveSketchPath}` });
       }
       state.sketchPath = effectiveSketchPath;
+      console.log(`Uploading sketch: ${effectiveSketchPath} to port: ${effectivePort} with fqbn: ${effectiveFqbn}`);
       const result = await uploadSketch({ fqbn: effectiveFqbn, port: effectivePort, sketchPath: effectiveSketchPath });
       return asTextResult({ ...result, sketchPath: effectiveSketchPath });
     }
