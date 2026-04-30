@@ -14,7 +14,7 @@ import { SerialManager } from "./lib/serialManager.mjs";
 
 const PORT = Number(process.env.MCP_PORT || process.env.PORT || "3333");
 const HOST = process.env.MCP_HOST || "127.0.0.1";
-const AUTH_KEY = process.env.MCP_AUTH_KEY || "";
+const AUTH_KEY = process.env.MCP_AUTH_KEY || randomUUID();
 
 // Path to SKILL.md — lives alongside server.mjs so it travels with the extension.
 const SKILL_PATH = path.join(import.meta.dirname ?? path.dirname(new URL(import.meta.url).pathname), "SKILL.md");
@@ -293,6 +293,8 @@ async function main() {
   httpServer.listen(PORT, HOST, () => {
     // eslint-disable-next-line no-console
     console.log(`Arduino MCP server listening on http://${HOST}:${PORT} (MCP at /mcp)`);
+    // eslint-disable-next-line no-console
+    console.log(`Arduino MCP auth key: ${AUTH_KEY}`);
 
     // Run library installations in the background so as not to block server startup
     void (async () => {

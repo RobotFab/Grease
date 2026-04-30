@@ -1678,8 +1678,16 @@ var ArduinoToolbarViewProvider = class {
         </div>
         <div class="mgr-section">
           <div class="mgr-card" style="padding: 10px; font-size: 10px; line-height: 1.4; color: var(--muted);">
-            <p>Your AI needs structure!</p>
-            <p style="margin-top: 8px;">If your AI Tether is active, your Prompt is already "greased". Try to use the following XML tags to emphasize goals, electronic hardware, mechanical components or control preferences. One example below:</p>
+            <p>Please stretch your panel and read this! Important! </p>
+            <br> 
+            <p> Your AI Agent needs greasing and structure!</p>
+            <p style="margin-top: 8px;">If your AI Tether is active and "arduino-cli" is on PATH, its time to make sure your AI Agent "knows" it can use it. Try the following as a Prompt: </p> 
+            <br>
+            <div style="margin-top: 8px; color: var(--ink); border-left: 2px solid var(--muted); padding-left: 8px;">
+              Please use &lt;IDE-Extension&gt; Arduino Grease &lt;/IDE-Extension&gt; to read signals from its MCP server, then generate and upload a new sketch to filter those incoming A0 analog signals. Check, within Arduino Grease's extension folder, for /server/server.mjs and /server/skill.md for existing Rest endpoints and your new skills. You should also use the randomly generated MCP_AUTH_KEY from server.mjs with the Arduino Grease 
+            </div> 
+            <br>
+            <p> When running your sketches, try to use the following XML tags to emphasize goals, electronic hardware, mechanical components or control preferences. One example below:</p>
             <div style="margin-top: 8px; color: var(--ink); border-left: 2px solid var(--muted); padding-left: 8px;">
               Write a program to &lt;goal&gt; stack 5 cups &lt;/goal&gt;. I am using &lt;hw&gt; 2 servo motors and one 3-pin temperature sensor. My orange wire is on pin 13&lt;/hw&gt;.
               <br><br>
