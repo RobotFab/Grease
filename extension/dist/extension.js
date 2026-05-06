@@ -525,7 +525,7 @@ var SerialPlotterPanel = class {
   html(defaultPort) {
     const portValue = defaultPort ? defaultPort.replaceAll('"', "&quot;") : "";
     const placeholder = os.platform() === "win32" ? "COM1" : "/dev/cu.usbmodem...";
-    return `<!doctype html>
+    return `<!DOCTYPE html>
 <html>
   <head>
     <meta charset="utf-8" />
@@ -830,7 +830,7 @@ var ExamplesPanel = class {
     }
   }
   html() {
-    return `<!doctype html>
+    return `<!DOCTYPE html>
 <html>
   <head>
     <meta charset="utf-8" />
@@ -1087,7 +1087,7 @@ var ManagersPanel = class {
     }
   }
   html() {
-    return `<!doctype html>
+    return `<!DOCTYPE html>
 <html>
   <head>
     <meta charset="utf-8" />
@@ -1293,7 +1293,7 @@ var BoardTemplatePanel = class {
     }
   }
   html() {
-    return `<!doctype html>
+    return `<!DOCTYPE html>
 <html>
   <head>
     <meta charset="utf-8" />
@@ -1573,9 +1573,12 @@ var ArduinoToolbarViewProvider = class {
   }
   html(webview) {
     const iconUri = webview.asWebviewUri(vscode7.Uri.joinPath(this.context.extensionUri, "resources", "icon.png"));
-    return `<!doctype html>
+    return `<!DOCTYPE html>
 <html>
-<style>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   :root { --muted: #4a9960; --ink: #c8ffd8; --bg: #080e0a; --panel: #0b120d; --stroke: #1a3322; --mono: Consolas, Menlo, Monaco, 'Courier New', monospace; }
   body { background: var(--bg); color: var(--ink); font-family: var(--mono); font-size: 11px; height: 100vh; overflow: hidden; }
@@ -1617,7 +1620,8 @@ var ArduinoToolbarViewProvider = class {
   .mgr-item .name { color: var(--ink); font-weight: bold; }
   .mgr-item .meta { color: var(--muted); }
 </style>
-
+</head>
+<body>
 <div class="panel-area" id="panelArea">
     <canvas class="rain" id="rainCanvas"></canvas>
     <div class="panel-content">
@@ -1951,6 +1955,17 @@ window.addEventListener('message', event => {
       if (s.serialActive) sBtn.classList.add('serial-on');
       else sBtn.classList.remove('serial-on');
     }
+    if (s.accentColor) {
+      const block = document.getElementById('accentBlock');
+      if (block) block.style.color = s.accentColor;
+      const idx = ACCENT_COLORS.indexOf(s.accentColor);
+      if (idx !== -1) accentIndex = idx;
+    }
+  } else if (msg.type === 'accentColor') {
+    const block = document.getElementById('accentBlock');
+    if (block) block.style.color = msg.color;
+    const idx = ACCENT_COLORS.indexOf(msg.color);
+    if (idx !== -1) accentIndex = idx;
   } else if (msg.type === 'verifyResult') {
     if(msg.success && rainState === 'thrust') {
       thrustOpacityBoost += 0.1;
@@ -2053,8 +2068,8 @@ $("libQuery")?.addEventListener("keydown", (e) => {
 $("libInstallBtn")?.addEventListener("click", () => vscode.postMessage({ type: "libInstallSelected", name: selectedLib }));
 
 function onUploadClick(){setRainState('thrust');cmd('arduinoMcp.upload');}
-</script>
-
+    </script>
+  </body>
 </html>`;
   }
 };
@@ -2165,9 +2180,19 @@ async function activate(context) {
     cycleAccent: async (color) => {
       const config = vscode8.workspace.getConfiguration("workbench");
       const current = config.get("colorCustomizations") || {};
-      const updated = { ...current, "statusBar.background": color, "focusBorder": color, "activityBarBadge.background": color, "panelTitle.activeBorder": color };
-      await config.update("colorCustomizations", updated, vscode8.ConfigurationTarget.Global);
-      output.appendLine(`Accent color set to ${color}`);
+      const updated = { ...current, 
+        "statusBar.background": color, 
+        "statusBar.noFolderBackground": color,
+        "statusBar.debuggingBackground": color,
+        "statusBarItem.remoteBackground": color,
+        "focusBorder": color, 
+        "activityBarBadge.background": color, 
+        "panelTitle.activeBorder": color 
+      };
+      const target = (vscode8.workspace.workspaceFolders && vscode8.workspace.workspaceFolders.length > 0) ? vscode8.ConfigurationTarget.Workspace : vscode8.ConfigurationTarget.Global;
+      await config.update("colorCustomizations", updated, target);
+      output.appendLine(`Accent color set to ${color} (Target: ${target === vscode8.ConfigurationTarget.Workspace ? 'Workspace' : 'Global'})`);
+      refreshToolbarState();
     }
   });
   context.subscriptions.push(vscode8.window.registerWebviewViewProvider(ArduinoToolbarViewProvider.viewType, toolbar));
@@ -2176,6 +2201,8 @@ async function activate(context) {
   let lastServerState = null;
   let currentTarget = await loadTarget(context);
   const refreshToolbarState = () => {
+    const config = vscode8.workspace.getConfiguration("workbench");
+    const customizations = config.get("colorCustomizations") || {};
     toolbar.setState({
       port: currentTarget?.port ?? null,
       fqbn: currentTarget?.fqbn ?? null,
@@ -2184,7 +2211,8 @@ async function activate(context) {
       serverHealthy,
       lastScanAtMs,
       serialActive: serialMonitorPanel.isConnected,
-      uploading: !!lastServerState?.uploading
+      uploading: !!lastServerState?.uploading,
+      accentColor: customizations["statusBar.background"] || "#007ACC"
     });
   };
   const setWarning = (text) => {
@@ -2746,9 +2774,20 @@ async function activate(context) {
       const idx = ACCENT_COLORS.indexOf(currentColor);
       const nextIdx = (idx + 1) % ACCENT_COLORS.length;
       const color = ACCENT_COLORS[nextIdx];
-      const updated = { ...current, "statusBar.background": color, "focusBorder": color, "activityBarBadge.background": color, "panelTitle.activeBorder": color };
-      await config.update("colorCustomizations", updated, vscode8.ConfigurationTarget.Global);
-      output.appendLine(`Accent color cycled to ${color}`);
+      const updated = { ...current, 
+        "statusBar.background": color, 
+        "statusBar.noFolderBackground": color,
+        "statusBar.debuggingBackground": color,
+        "statusBarItem.remoteBackground": color,
+        "focusBorder": color, 
+        "activityBarBadge.background": color, 
+        "panelTitle.activeBorder": color 
+      };
+      const target = (vscode8.workspace.workspaceFolders && vscode8.workspace.workspaceFolders.length > 0) ? vscode8.ConfigurationTarget.Workspace : vscode8.ConfigurationTarget.Global;
+      await config.update("colorCustomizations", updated, target);
+      output.appendLine(`Accent color cycled to ${color} (Target: ${target === vscode8.ConfigurationTarget.Workspace ? 'Workspace' : 'Global'})`);
+      refreshToolbarState();
+      toolbar.view?.webview.postMessage({ type: 'accentColor', color: color });
     })
   );
   refreshToolbarState();
