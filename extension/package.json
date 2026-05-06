@@ -2,9 +2,9 @@
   "name": "arduino-grease",
   "displayName": "Arduino Grease",
   "publisher": "RobotFab",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "Arduino tooling + MCP server for agentic debugging inside VS Code, Cursor, and Antigravity.",
-  "releaseNotes": "Added readme.md to package distribution.",
+  "releaseNotes": "v1.0.5 — Arduino syntax highlighting, clangd IntelliSense bridge, auto board-core detection, Grease/Graphite themes, accent color cycling, serial-off on panel switch.",
   "main": "dist/extension.js",
   "icon": "icon.png",
   "scripts": {
@@ -19,13 +19,16 @@
   "license": "MIT",
   "type": "commonjs",
   "engines": {
-    "vscode": "^1.107.0"
+    "vscode": "^1.105.1"
   },
   "categories": [
+    "Programming Languages",
+    "Themes",
     "Other"
   ],
   "activationEvents": [
     "onStartupFinished",
+    "onLanguage:arduino",
     "onView:arduinoMcp.toolbar",
     "onCommand:arduinoMcp.serverStatus",
     "onCommand:arduinoMcp.refreshServer",
@@ -40,9 +43,37 @@
     "onCommand:arduinoMcp.openSerialPlotter",
     "onCommand:arduinoMcp.openExamples",
     "onCommand:arduinoMcp.openManagers",
-    "onCommand:arduinoMcp.openBoardTemplate"
+    "onCommand:arduinoMcp.openBoardTemplate",
+    "onCommand:arduinoMcp.cycleAccentColor"
   ],
   "contributes": {
+    "languages": [
+      {
+        "id": "arduino",
+        "extensions": [".ino"],
+        "aliases": ["Arduino", "arduino"],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "arduino",
+        "scopeName": "source.arduino",
+        "path": "./syntaxes/arduino.tmLanguage.json"
+      }
+    ],
+    "themes": [
+      {
+        "label": "Grease",
+        "uiTheme": "vs-dark",
+        "path": "./themes/grease-color-theme.json"
+      },
+      {
+        "label": "Graphite",
+        "uiTheme": "vs-dark",
+        "path": "./themes/graphite-color-theme.json"
+      }
+    ],
     "commands": [
       {
         "command": "arduinoMcp.startSketch",
@@ -111,6 +142,10 @@
       {
         "command": "arduinoMcp.openBoardTemplate",
         "title": "Arduino Grease: Open AI Prompt Template"
+      },
+      {
+        "command": "arduinoMcp.cycleAccentColor",
+        "title": "Arduino Grease: Cycle Accent Color"
       }
     ],
     "viewsContainers": {
@@ -136,19 +171,19 @@
       {
         "command": "arduinoMcp.upload",
         "key": "F5",
-        "when": "editorLangId == cpp || resourceExtname == .ino"
+        "when": "editorLangId == arduino || editorLangId == cpp || resourceExtname == .ino"
       },
       {
         "command": "arduinoMcp.upload",
         "key": "shift+enter",
         "mac": "shift+enter",
-        "when": "editorLangId == cpp || resourceExtname == .ino"
+        "when": "editorLangId == arduino || editorLangId == cpp || resourceExtname == .ino"
       }
     ]
   },
   "devDependencies": {
     "@types/node": "^25.6.0",
-    "@types/vscode": "^1.107.0",
+    "@types/vscode": "^1.105.1",
     "@typescript-eslint/eslint-plugin": "^8.59.0",
     "@typescript-eslint/parser": "^8.59.0",
     "@vscode/test-electron": "^2.5.2",

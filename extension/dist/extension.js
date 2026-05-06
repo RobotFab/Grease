@@ -120,6 +120,38 @@ async function updateIndexes() {
 async function installCore(pkg) {
   return runArduinoCli(["core", "install", pkg]);
 }
+function extractCoreFromFqbn(fqbn) {
+  if (!fqbn || typeof fqbn !== "string") return null;
+  const parts = fqbn.split(":");
+  if (parts.length >= 2) return `${parts[0]}:${parts[1]}`;
+  return null;
+}
+async function isCoreInstalled(corePkg) {
+  const result = await runArduinoCli(["core", "list", "--json"]);
+  if (!result.success) return false;
+  try {
+    const parsed = JSON.parse(result.stdout);
+    const platforms = Array.isArray(parsed?.platforms) ? parsed.platforms : [];
+    for (const p of platforms) {
+      const id = String(p?.id ?? "");
+      if (id === corePkg) return true;
+    }
+  } catch { }
+  return false;
+}
+async function generateCompileCommands(fqbn, sketchPath, outputChannel) {
+  if (!fqbn || !sketchPath) return;
+  try {
+    const result = await runArduinoCli(["compile", "--fqbn", fqbn, "--only-compilation-database", sketchPath], sketchPath);
+    if (result.success) {
+      outputChannel.appendLine("[clangd] compile_commands.json generated for IntelliSense.");
+    } else {
+      outputChannel.appendLine("[clangd] Failed to generate compile_commands.json: " + result.stderr);
+    }
+  } catch (e) {
+    outputChannel.appendLine("[clangd] Error generating compile_commands.json: " + (e instanceof Error ? e.message : String(e)));
+  }
+}
 async function detectBoardCandidates() {
   const result = await runArduinoCli(["board", "list", "--format", "json"]);
   const raw = result.stdout;
@@ -1526,6 +1558,11 @@ var ArduinoToolbarViewProvider = class {
           } else {
             vscode7.window.showInformationMessage(`Arduino Grease: Library ${input} installed.`);
           }
+        } else if (msg.type === "serialOff") {
+          await this.actions.serialOff();
+        } else if (msg.type === "cycleAccent") {
+          const color = String(msg.color ?? "#007ACC");
+          await this.actions.cycleAccent(color);
         }
       } catch (e) {
         const err = e instanceof Error ? e.message : String(e);
@@ -1609,6 +1646,9 @@ var ArduinoToolbarViewProvider = class {
           <div class="server-line">
             <span class="sblock serverBlock" style="color:#49c06b" onclick="cmd('arduinoMcp.toggleServer')">&#x2588;</span>
             <span style="color:var(--muted);font-size:10px" class="serverStatus">running</span>
+          </div>
+          <div class="server-line" style="margin-top:6px">
+            <span class="sblock" id="accentBlock" style="color:#007ACC;cursor:pointer;font-size:16px;line-height:1" onclick="cycleAccent()" title="Click to cycle accent color">&#x2588;</span>
           </div>
         </div>
         <div class="logo-area">
@@ -1725,8 +1765,18 @@ function switchTab(panel) {
   const panelEl = document.getElementById('panel-' + panel);
   if (panelEl) panelEl.classList.add('active');
   rainActive = (panel === 'board' || panel === 'managers' || panel === 'examples' || panel === 'prompt');
-  if (panel === 'managers') { vscode.postMessage({type:'updateIndexes'}); vscode.postMessage({type:'libList'}); }
-  if (panel === 'examples') vscode.postMessage({type:'list',library:''});
+  if (panel === 'managers') { vscode.postMessage({type:'serialOff'}); vscode.postMessage({type:'updateIndexes'}); vscode.postMessage({type:'libList'}); }
+  if (panel === 'examples') { vscode.postMessage({type:'serialOff'}); vscode.postMessage({type:'list',library:''}); }
+}
+
+const ACCENT_COLORS = ['#007ACC','#8B0000','#CC5500','#B8860B','#8B0060','#6A0DAD','#006400'];
+let accentIndex = 0;
+function cycleAccent() {
+  accentIndex = (accentIndex + 1) % ACCENT_COLORS.length;
+  const color = ACCENT_COLORS[accentIndex];
+  const block = document.getElementById('accentBlock');
+  if (block) block.style.color = color;
+  vscode.postMessage({ type: 'cycleAccent', color: color });
 }
 
 const rainCanvas = document.getElementById('rainCanvas');
@@ -1890,7 +1940,11 @@ window.addEventListener('message', event => {
   if (msg.type === 'state') {
     const s = msg.state || {};
     document.getElementById('portVal').textContent = s.port || '?';
-    document.getElementById('fqbnVal').textContent = s.fqbn || '?';
+    const fqbnVal = s.fqbn || '?';
+    document.getElementById('fqbnVal').textContent = fqbnVal;
+    if (fqbnVal === '?') {
+      document.getElementById('fqbnVal').innerHTML += '<br><span style="font-size:8px;color:#ffb4b4;line-height:1.2">Unknown board. Please find a way to install that board core on the terminal using arduino-cli commands.</span>';
+    }
     setServer(s);
     const sBtn = document.getElementById('serialBtn');
     if (sBtn) {
@@ -2014,6 +2068,23 @@ async function activate(context) {
   const output = vscode8.window.createOutputChannel(OUTPUT_CHANNEL_NAME);
   context.subscriptions.push(output);
   output.appendLine("Arduino Grease activating...");
+  // ── First-install setup: apply Grease theme + move Activity Bar to top ───
+  const FIRST_INSTALL_KEY = "arduinoMcp.firstInstallDone_1_0_5";
+  const firstInstallDone = context.globalState.get(FIRST_INSTALL_KEY);
+  if (!firstInstallDone) {
+    try {
+      const wbConfig = vscode8.workspace.getConfiguration("workbench");
+      await wbConfig.update("colorTheme", "Grease", vscode8.ConfigurationTarget.Global);
+      await wbConfig.update("activityBar.location", "top", vscode8.ConfigurationTarget.Global);
+      output.appendLine("First install: Applied Grease theme and moved Activity Bar to top.");
+    } catch (e) {
+      output.appendLine("First install theme setup failed: " + (e instanceof Error ? e.message : String(e)));
+    }
+    await context.globalState.update(FIRST_INSTALL_KEY, true);
+  }
+  // ── Arduino diagnostics collection for clangd bridge ──────────────────
+  const arduinoDiagnostics = vscode8.languages.createDiagnosticCollection("arduino");
+  context.subscriptions.push(arduinoDiagnostics);
   let serverProcess = null;
   let serverHealthy = false;
   let sawServerProblem = false;
@@ -2083,11 +2154,26 @@ async function activate(context) {
       setOk(currentTarget);
       refreshToolbarState();
       await runFirmwareUpload(fqbn, port);
+    },
+    serialOff: async () => {
+      if (serialMonitorPanel.isConnected) {
+        await serialMonitorPanel.stop();
+        output.appendLine("Serial disconnected (panel switch).");
+        refreshToolbarState();
+      }
+    },
+    cycleAccent: async (color) => {
+      const config = vscode8.workspace.getConfiguration("workbench");
+      const current = config.get("colorCustomizations") || {};
+      const updated = { ...current, "statusBar.background": color, "focusBorder": color, "activityBarBadge.background": color, "panelTitle.activeBorder": color };
+      await config.update("colorCustomizations", updated, vscode8.ConfigurationTarget.Global);
+      output.appendLine(`Accent color set to ${color}`);
     }
   });
   context.subscriptions.push(vscode8.window.registerWebviewViewProvider(ArduinoToolbarViewProvider.viewType, toolbar));
   let lastCandidates = [];
   let lastPorts = /* @__PURE__ */ new Set();
+  let lastServerState = null;
   let currentTarget = await loadTarget(context);
   const refreshToolbarState = () => {
     toolbar.setState({
@@ -2097,7 +2183,8 @@ async function activate(context) {
       serverRunning: serverProcess !== null,
       serverHealthy,
       lastScanAtMs,
-      serialActive: serialMonitorPanel.isConnected
+      serialActive: serialMonitorPanel.isConnected,
+      uploading: !!lastServerState?.uploading
     });
   };
   const setWarning = (text) => {
@@ -2113,7 +2200,7 @@ async function activate(context) {
     } else {
       status.text = `$(plug) ${target.port} (board unknown)`;
       status.backgroundColor = new vscode8.ThemeColor("statusBarItem.warningBackground");
-      status.tooltip = "Port detected but board not resolved";
+      status.tooltip = "Port detected but board not resolved. Use 'arduino-cli board list' and 'arduino-cli core install <package>' to install the correct driver.";
     }
   };
   const checkServerHealth = async (verbose = false) => {
@@ -2123,9 +2210,21 @@ async function activate(context) {
       return;
     }
     try {
-      const health = await getHealth();
-      const ok = Boolean(health.ok && health.name === "arduino-mcp");
+      const res = await fetch(`http://127.0.0.1:${serverProcess.port}/state`, {
+        headers: { "x-grease-auth": serverProcess.authKey }
+      });
+      const s = await res.json();
+      const ok = !!s.target;
       serverHealthy = ok;
+      
+      if (s.uploading) {
+        toolbar.view?.webview.postMessage({ type: "rainState", state: "thrust" });
+      } else if (lastServerState?.uploading) {
+        // Transition from uploading to idle
+        toolbar.view?.webview.postMessage({ type: "rainState", state: "idle" });
+      }
+      lastServerState = s;
+
       if (!ok) {
         output.appendLine("Problem with MCP Server");
         sawServerProblem = true;
@@ -2191,6 +2290,36 @@ async function activate(context) {
       setOk(currentTarget);
       if (changed) {
         output.appendLine(`Port ${currentTarget.port} and Board ${currentTarget.fqbn ?? "unknown"} detected.`);
+      }
+      // ── Auto board core detection & install prompt ──────────────────────
+      if (currentTarget.fqbn && changed) {
+        const corePkg = extractCoreFromFqbn(currentTarget.fqbn);
+        if (corePkg) {
+          const installed = await isCoreInstalled(corePkg);
+          if (installed) {
+            output.appendLine(`Board core ${corePkg} is already installed.`);
+          } else {
+            const choice = await vscode8.window.showInformationMessage(
+              `Arduino Grease: Board core "${corePkg}" is not installed. Would you like me to install the driver for this board?`,
+              "Install",
+              "Cancel"
+            );
+            if (choice === "Install") {
+              output.appendLine(`Installing board core ${corePkg}...`);
+              const up = await updateIndexes();
+              output.appendLine(up.stdout);
+              output.appendLine(up.stderr);
+              const res = await installCore(corePkg);
+              output.appendLine(res.stdout);
+              output.appendLine(res.stderr);
+              if (res.success) {
+                vscode8.window.showInformationMessage(`Arduino Grease: Board core ${corePkg} installed successfully.`);
+              } else {
+                vscode8.window.showErrorMessage(`Arduino Grease: Failed to install board core ${corePkg}. See Output.`);
+              }
+            }
+          }
+        }
       }
     }
     refreshToolbarState();
@@ -2275,9 +2404,35 @@ async function activate(context) {
     output.appendLine(res.stdout);
     output.appendLine(res.stderr);
     if (!res.success) {
+      // Parse compiler errors into diagnostics
+      const diagMap = new Map();
+      const errorRegex = /^(.+):([0-9]+):([0-9]+):\s*(error|warning):\s*(.+)$/gm;
+      let m;
+      const combinedOutput = (res.stdout + "\n" + res.stderr);
+      while ((m = errorRegex.exec(combinedOutput)) !== null) {
+        const filePath = m[1];
+        const line = Math.max(0, parseInt(m[2], 10) - 1);
+        const col = Math.max(0, parseInt(m[3], 10) - 1);
+        const severity = m[4] === "error" ? vscode8.DiagnosticSeverity.Error : vscode8.DiagnosticSeverity.Warning;
+        const message = m[5];
+        const range = new vscode8.Range(line, col, line, col + 1);
+        const diag = new vscode8.Diagnostic(range, message, severity);
+        diag.source = "Arduino Grease";
+        const uri = vscode8.Uri.file(filePath);
+        const key = uri.toString();
+        if (!diagMap.has(key)) diagMap.set(key, []);
+        diagMap.get(key).push(diag);
+      }
+      arduinoDiagnostics.clear();
+      for (const [uriStr, diags] of diagMap) {
+        arduinoDiagnostics.set(vscode8.Uri.parse(uriStr), diags);
+      }
       vscode8.window.showErrorMessage("Arduino Grease: Verify failed (see Output).");
       return { ok: false };
     }
+    arduinoDiagnostics.clear();
+    // Generate compile_commands.json for clangd IntelliSense
+    void generateCompileCommands(fqbn, sketchPath, output);
     vscode8.window.showInformationMessage("Arduino Grease: Verify succeeded.");
     return { ok: true, sketchPath, fqbn };
   };
@@ -2375,7 +2530,7 @@ async function activate(context) {
   }, 3e4);
   const healthInterval = setInterval(() => {
     void checkServerHealth(false);
-  }, 12e4);
+  }, 2000);
   context.subscriptions.push({ dispose: () => clearInterval(targetInterval) });
   context.subscriptions.push({ dispose: () => clearInterval(healthInterval) });
   context.subscriptions.push(
@@ -2563,15 +2718,37 @@ async function activate(context) {
     }),
     vscode8.commands.registerCommand("arduinoMcp.openExamples", async () => {
       output.show(true);
+      if (serialMonitorPanel.isConnected) {
+        await serialMonitorPanel.stop();
+        output.appendLine("Serial disconnected (Examples panel opened).");
+        refreshToolbarState();
+      }
       examplesPanel.show(currentTarget?.fqbn ?? null);
     }),
     vscode8.commands.registerCommand("arduinoMcp.openManagers", async () => {
       output.show(true);
+      if (serialMonitorPanel.isConnected) {
+        await serialMonitorPanel.stop();
+        output.appendLine("Serial disconnected (Managers panel opened).");
+        refreshToolbarState();
+      }
       managersPanel.show();
     }),
     vscode8.commands.registerCommand("arduinoMcp.openBoardTemplate", async () => {
       output.show(true);
       boardTemplatePanel.show({ fqbn: currentTarget?.fqbn ?? null, port: currentTarget?.port ?? null });
+    }),
+    vscode8.commands.registerCommand("arduinoMcp.cycleAccentColor", async () => {
+      const ACCENT_COLORS = ["#007ACC", "#8B0000", "#CC5500", "#B8860B", "#8B0060", "#6A0DAD", "#006400"];
+      const config = vscode8.workspace.getConfiguration("workbench");
+      const current = config.get("colorCustomizations") || {};
+      const currentColor = current["statusBar.background"] || "#007ACC";
+      const idx = ACCENT_COLORS.indexOf(currentColor);
+      const nextIdx = (idx + 1) % ACCENT_COLORS.length;
+      const color = ACCENT_COLORS[nextIdx];
+      const updated = { ...current, "statusBar.background": color, "focusBorder": color, "activityBarBadge.background": color, "panelTitle.activeBorder": color };
+      await config.update("colorCustomizations", updated, vscode8.ConfigurationTarget.Global);
+      output.appendLine(`Accent color cycled to ${color}`);
     })
   );
   refreshToolbarState();

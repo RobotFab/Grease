@@ -22,6 +22,7 @@ const SKILL_PATH = path.join(import.meta.dirname ?? path.dirname(new URL(import.
 const state = {
   target: /** @type {{ port: string|null, fqbn: string|null }} */ ({ port: null, fqbn: null }),
   sketchPath: process.cwd(),
+  uploading: false,
 };
 
 const serial = new SerialManager();
@@ -136,7 +137,6 @@ async function main() {
         return asTextResult({ success: false, error: `Sketch path not found: ${effectiveSketchPath}` });
       }
       state.sketchPath = effectiveSketchPath;
-      console.log(`Compiling sketch: ${effectiveSketchPath} with fqbn: ${effectiveFqbn}`);
       const result = await compileSketch({ fqbn: effectiveFqbn, sketchPath: effectiveSketchPath });
       return asTextResult({ ...result, sketchPath: effectiveSketchPath });
     }
@@ -163,9 +163,13 @@ async function main() {
         return asTextResult({ success: false, error: `Sketch path not found: ${effectiveSketchPath}` });
       }
       state.sketchPath = effectiveSketchPath;
-      console.log(`Uploading sketch: ${effectiveSketchPath} to port: ${effectivePort} with fqbn: ${effectiveFqbn}`);
-      const result = await uploadSketch({ fqbn: effectiveFqbn, port: effectivePort, sketchPath: effectiveSketchPath });
-      return asTextResult({ ...result, sketchPath: effectiveSketchPath });
+      state.uploading = true;
+      try {
+        const result = await uploadSketch({ fqbn: effectiveFqbn, port: effectivePort, sketchPath: effectiveSketchPath });
+        return asTextResult({ ...result, sketchPath: effectiveSketchPath });
+      } finally {
+        state.uploading = false;
+      }
     }
   );
 
