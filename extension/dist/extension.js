@@ -1666,6 +1666,17 @@ var ArduinoToolbarViewProvider = class {
           <a class="c-std" id="updateIdx" href="#" onclick="event.preventDefault()">||Update indexes||</a>
         </div>
         <div class="mgr-section">
+          <div class="mgr-section-title">Board</div>
+          <div class="mgr-card">
+            <div class="mgr-top-row">
+              <a class="c-std" id="chooseTargetBtn" href="#" onclick="event.preventDefault()">||Choose as target||</a>
+            </div>
+            <input id="boardQuery" class="boardQuery" placeholder="arduino, esp32, rp2040..." />
+            <div class="mgr-list" id="boardsList"></div>
+            <a class="c-amber" id="uploadFirmwareBtn" href="#" onclick="event.preventDefault()">||Upload firmware||</a>
+          </div>
+        </div>
+        <div class="mgr-section">
           <div class="mgr-section-title">Library</div>
           <div class="mgr-card">
             <div class="mgr-top-row">
@@ -1674,17 +1685,6 @@ var ArduinoToolbarViewProvider = class {
             </div>
             <input id="libQuery" class="libQuery" placeholder="wire, servo, wifi..." />
             <div class="mgr-list" id="libsList"></div>
-          </div>
-        </div>
-        <div class="mgr-section">
-          <div class="mgr-section-title">Board</div>
-          <div class="mgr-card">
-            <div class="mgr-top-row">
-              <a class="c-std" id="chooseTargetBtn" href="#" onclick="event.preventDefault()">||Choose as target||</a>
-              <a class="c-amber" id="uploadFirmwareBtn" href="#" onclick="event.preventDefault()">||Upload firmware||</a>
-            </div>
-            <input id="boardQuery" class="boardQuery" placeholder="arduino, esp32, rp2040..." />
-            <div class="mgr-list" id="boardsList"></div>
           </div>
         </div>
         <div class="mgr-card" style="margin-top: 9px;">
@@ -1947,7 +1947,7 @@ window.addEventListener('message', event => {
     const fqbnVal = s.fqbn || '?';
     document.getElementById('fqbnVal').textContent = fqbnVal;
     if (fqbnVal === '?') {
-      document.getElementById('fqbnVal').innerHTML += '<br><span style="font-size:8px;color:#ffb4b4;line-height:1.2">Unknown board. Please find a way to install that board core on the terminal using arduino-cli commands.</span>';
+      document.getElementById('fqbnVal').innerHTML += '<br><span style="font-size:8px;color:#ffb4b4;line-height:1.2">Unknown board. Access ||Managers||.</span>';
     }
     setServer(s);
     const sBtn = document.getElementById('serialBtn');

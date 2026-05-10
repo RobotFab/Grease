@@ -1,6 +1,6 @@
 ## Arduino Grease
 
-tl;dr Program robots to do what you say and let them help debug themselves through Serial.
+An extension to program robots to do what you say and to enable robots to read their own UART feedback to debug themselves. Creates a physical extension of an AI agent.
 
 Arduino tooling + a bundled local MCP server for **agentic hardware debugging** inside VS Code, Cursor, and Antigravity.
 

@@ -46,12 +46,76 @@
 3. getState            ← confirm port + fqbn
 4. [edit sketch code]
 5. compileSketch       ← verify it builds
-6. uploadSketch        ← flash to board by pressing the ||Upload|| button
+6. uploadSketch        ← flash to board by pressing the ||Upload|| button (see Upload Animation below)
 7. serialOpen          ← open serial at correct baud
 8. serialRead          ← observe behaviour
 9. [iterate as needed]
 10. serialClose        ← tidy up
 ```
+
+---
+
+## Upload Animation — Simulating the ||Upload|| Button
+
+The `||Upload||` button triggers the VS Code command `arduinoMcp.upload`, which compiles, flashes
+the board, and plays the rain/thrust animation. Any VS Code-based IDE supports this
+(VS Code, Cursor, Windsurf, Antigravity, etc.). To simulate it from the AI agent, follow these
+two steps in order:
+
+**Step 1 — Open the sketch as the active editor:**
+
+Use the IDE's CLI to open the `.ino` file. Replace `<ide>` with the appropriate command
+(`code`, `cursor`, `windsurf`, `antigravity`, etc.):
+```bash
+<ide> /path/to/sketch/sketch.ino
+```
+This is required because `getSketchFolder()` resolves the sketch from the active editor.
+If no `.ino` file is open, the upload command silently fails.
+
+**Step 2 — Trigger `arduinoMcp.upload` via the command palette:**
+
+> **Key rule for all platforms:** The command palette shortcut (`Ctrl/Cmd+Shift+P`) already
+> inserts the `>` prefix — do **not** add another `>` before `arduinoMcp.upload`.
+
+**macOS:**
+```bash
+osascript <<'EOF'
+tell application process "YOUR_IDE_PROCESS_NAME" of application "System Events" to set frontmost to true
+delay 0.5
+tell application "System Events"
+  keystroke "p" using {command down, shift down}
+  delay 0.6
+  keystroke "arduinoMcp.upload"
+  delay 0.5
+  keystroke return
+end tell
+EOF
+```
+*Required permission:* System Settings → Privacy & Security → Automation → [your IDE] (allow Terminal/agent).
+
+**Windows (PowerShell):**
+```powershell
+Add-Type -AssemblyName System.Windows.Forms
+Start-Sleep -Milliseconds 500
+[System.Windows.Forms.SendKeys]::SendWait("^+p")
+Start-Sleep -Milliseconds 600
+[System.Windows.Forms.SendKeys]::SendWait("arduinoMcp.upload")
+Start-Sleep -Milliseconds 500
+[System.Windows.Forms.SendKeys]::SendWait("{ENTER}")
+```
+*Note:* Focus the IDE window before running this script.
+
+**Linux (xdotool):**
+```bash
+xdotool search --name "YOUR_IDE_WINDOW_TITLE" windowactivate --sync
+sleep 0.5
+xdotool key ctrl+shift+p
+sleep 0.6
+xdotool type "arduinoMcp.upload"
+sleep 0.5
+xdotool key Return
+```
+*Install with:* `sudo apt install xdotool` (Debian/Ubuntu) or equivalent.
 
 ---
 
