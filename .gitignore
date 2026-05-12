@@ -3,3 +3,6 @@
 
 # Arduino sketches
 *.ino
+
+# node_modules
+node_modules/
