@@ -20,7 +20,12 @@ Arduino tooling + a bundled local MCP server for **agentic hardware debugging** 
 - Auto-selects a target if exactly one recognized board is present; otherwise prompts you to pick.
 - Adds Activity Bar actions for Verify/Upload/Serial Monitor/Serial Plotter/Examples/Managers/Board Template, to create an user friendly environment.
 
-### v1.0.5 — New Features
+### v1.0.6 — New Features
+- **Expanded Board Support**: Install boards beyond the standard Arduino lineup directly from the Managers panel. Supported platforms include Raspberry Pi Pico / RP2040, ESP8266, ESP32, STM32 (Nucleo, Blue Pill), SparkFun (AVR, SAMD, Artemis), Adafruit (AVR, SAMD, nRF52), Seeed Studio (XIAO, Wio Terminal), ATtiny, and MCUdude cores (MiniCore, MegaCore, MightyCore). Click **||Install new board||** in the Board Manager to browse and install.
+- **Serial Plotter Legend**: The plotter now shows a color legend for each data series below the graph. Click any colored label to cycle its color. Labeled serial streams (e.g. `sensor = 123, output = 456`) are parsed automatically. A **bg** button toggles the background between dark and light.
+- **Plotter Opens in New Window**: The Serial Plotter now opens directly in a detached window on the first click.
+
+### v1.0.5 — Previous Features
 - **Arduino Syntax Highlighting**: Full TextMate grammar for `.ino` files with Arduino-specific functions, types, and constants.
 - **clangd IntelliSense Bridge**: Generates `compile_commands.json` for semantic understanding; creates diagnostic collection for errors.
 - **Auto Board Core Detection**: Detects FQBN on board connection and auto-prompts to install missing board cores.
@@ -43,7 +48,7 @@ npm run build
 npx @vscode/vsce package --skip-license --allow-missing-repository
 ```
 
-2. Install the generated `arduino-grease-1.0.5.vsix` from your IDE's extension installer (VS Code/Cursor/Antigravity/Other VS-based IDEs).
+2. Install the generated `arduino-grease-1.0.6.vsix` from your IDE's extension installer (VS Code/Cursor/Antigravity/Other VS-based IDEs).
 
 ### Credits
 

@@ -433,6 +433,17 @@ function parseAllNumbers(line) {
   }
   return numbers;
 }
+function parseLabeled(line) {
+  const pairs = [];
+  const re = /([A-Za-z_]\w*)\s*=\s*(-?\d+(?:\.\d+)?)/g;
+  let m;
+  while ((m = re.exec(String(line))) !== null) {
+    pairs.push({ label: m[1], value: Number(m[2]) });
+  }
+  if (pairs.length > 0) return { labels: pairs.map(p => p.label), numbers: pairs.map(p => p.value) };
+  const numbers = parseAllNumbers(line);
+  return { labels: [], numbers };
+}
 var SerialPlotterPanel = class {
   constructor(output) {
     this.output = output;
@@ -451,10 +462,9 @@ var SerialPlotterPanel = class {
       );
       this.panel.onDidDispose(() => this.dispose());
       this.panel.webview.onDidReceiveMessage((msg) => void this.onMessage(msg));
-    } else {
-      this.panel.title = "Arduino Grease: Plttr";
-      this.panel.reveal(vscode3.ViewColumn.Beside);
     }
+    this.panel.title = "Arduino Grease: Plttr";
+    this.panel.reveal(vscode3.ViewColumn.Beside);
     this.panel.webview.html = this.html(defaultPort);
     this.startPolling();
     this.postStatus();
@@ -482,11 +492,15 @@ var SerialPlotterPanel = class {
         try {
           const r = await serialRead();
           const points = [];
+          const labelBatch = [];
           for (const line of r.lines ?? []) {
-            const numbers = parseAllNumbers(String(line));
-            if (numbers.length > 0) points.push(numbers);
+            const parsed = parseLabeled(String(line));
+            if (parsed.numbers.length > 0) {
+              points.push(parsed.numbers);
+              labelBatch.push(parsed.labels);
+            }
           }
-          if (points.length) this.panel?.webview.postMessage({ type: "points", points });
+          if (points.length) this.panel?.webview.postMessage({ type: "points", points, labels: labelBatch });
           this.panel?.webview.postMessage({ type: "status", status: r.serial });
         } catch {
           this.panel?.webview.postMessage({ type: "status", status: { isOpen: false } });
@@ -565,7 +579,12 @@ var SerialPlotterPanel = class {
         padding:2px 4px; font-size:10px; opacity:0; pointer-events:none; transition:opacity .12s ease; white-space:nowrap;
       }
       .cmdbtn:hover::after{ opacity:1; }
-      canvas { width: 100%; height: calc(100vh - 106px); border: 1px solid var(--stroke); border-radius: 8px; background: #020502; box-shadow: inset 0 0 35px rgba(0, 255, 90, 0.08); }
+      canvas { width: 100%; height: calc(100vh - 162px); border: 1px solid var(--stroke); border-radius: 8px; background: #020502; box-shadow: inset 0 0 35px rgba(0, 255, 90, 0.08); }
+      #legend { display:flex; gap:10px; flex-wrap:wrap; align-items:center; padding:5px 8px; margin-top:4px; border:1px solid var(--stroke); border-radius:6px; background:var(--panel); min-height:26px; font-size:10px; }
+      .leg-item { cursor:pointer; display:flex; align-items:center; gap:3px; user-select:none; }
+      .leg-item:hover { text-decoration:underline; }
+      .leg-bg { cursor:pointer; color:var(--muted); border:1px solid var(--stroke); padding:1px 6px; border-radius:3px; font-size:10px; margin-left:auto; }
+      .leg-bg:hover { color:var(--ink); }
     </style>
   </head>
   <body>
@@ -586,6 +605,7 @@ var SerialPlotterPanel = class {
     </div>
 
     <canvas id="canvas" width="1500" height="760"></canvas>
+    <div id="legend"><span class="leg-bg" onclick="toggleBg()">bg</span></div>
 
     <script>
       const vscode = acquireVsCodeApi();
@@ -598,6 +618,12 @@ var SerialPlotterPanel = class {
       let yMin = -0.2;
       let yMax = 1.2;
 
+      const PLOT_COLORS = ["#7dff9e","#ff7d9e","#9e7dff","#ffff7d","#7dffff","#ffb47d","#ff9e7d","#7db4ff","#ff7dff","#d4ff7d"];
+      let seriesColors = [...PLOT_COLORS];
+      let seriesLabels = [];
+      let numSeriesTotal = 0;
+      let plotBgDark = true;
+
       function setStatus(s) {
         if (!s) return;
         const connected = !!s.isOpen;
@@ -607,29 +633,24 @@ var SerialPlotterPanel = class {
       }
 
       function drawGrid(w, h) {
-        ctx.strokeStyle = "rgba(62, 255, 120, 0.12)";
+        ctx.strokeStyle = plotBgDark ? "rgba(62,255,120,0.12)" : "rgba(0,80,30,0.12)";
         ctx.lineWidth = 1;
         for (let x = 50; x < w - 20; x += 40) {
-          ctx.beginPath();
-          ctx.moveTo(x, 20);
-          ctx.lineTo(x, h - 36);
-          ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(x, 20); ctx.lineTo(x, h - 36); ctx.stroke();
         }
         for (let y = 20; y < h - 36; y += 32) {
-          ctx.beginPath();
-          ctx.moveTo(50, y);
-          ctx.lineTo(w - 20, y);
-          ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(50, y); ctx.lineTo(w - 20, y); ctx.stroke();
         }
       }
 
       function draw() {
         const w = canvas.width;
         const h = canvas.height;
-        ctx.clearRect(0, 0, w, h);
+        ctx.fillStyle = plotBgDark ? "#020502" : "#f5f5f5";
+        ctx.fillRect(0, 0, w, h);
         drawGrid(w, h);
 
-        ctx.strokeStyle = "rgba(80,255,140,0.35)";
+        ctx.strokeStyle = plotBgDark ? "rgba(80,255,140,0.35)" : "rgba(0,100,40,0.4)";
         ctx.lineWidth = 2;
         ctx.beginPath();
         ctx.moveTo(50, 20);
@@ -643,14 +664,14 @@ var SerialPlotterPanel = class {
         const plotW = x1 - x0;
         const plotH = y0 - y1;
 
-        ctx.shadowColor = "rgba(140,255,170,0.55)";
+        ctx.shadowColor = plotBgDark ? "rgba(140,255,170,0.55)" : "rgba(0,80,30,0.4)";
         ctx.shadowBlur = 10;
         ctx.lineWidth = 2.2;
-        
+
         const numSeries = series.length > 0 ? series[series.length - 1].length : 0;
-        const colors = ["#7dff9e", "#ff7d9e", "#9e7dff", "#ffff7d", "#7dffff", "#ffb47d"];
         for (let s = 0; s < numSeries; s++) {
-          ctx.strokeStyle = colors[s % colors.length];
+          const col = seriesColors[s] !== undefined ? seriesColors[s] : PLOT_COLORS[s % PLOT_COLORS.length];
+          ctx.strokeStyle = col;
           ctx.beginPath();
           for (let i = 0; i < series.length; i++) {
             if (s >= series[i].length) continue;
@@ -663,13 +684,39 @@ var SerialPlotterPanel = class {
         }
         ctx.shadowBlur = 0;
 
-        ctx.fillStyle = "#8de0a0";
+        ctx.fillStyle = plotBgDark ? "#8de0a0" : "#006400";
         ctx.font = "11px Consolas, Menlo, Monaco, monospace";
         ctx.fillText("min " + yMin.toFixed(2), x0, 14);
         ctx.fillText("max " + yMax.toFixed(2), x0 + 130, 14);
-        
         const lastVals = series[series.length - 1] || [];
         ctx.fillText("last " + lastVals.map(v => v.toFixed(3)).join(", "), x0 + 260, 14);
+      }
+
+      function updateLegend() {
+        const legend = $("legend");
+        if (!legend) return;
+        let html = '';
+        for (let i = 0; i < numSeriesTotal; i++) {
+          if (seriesColors[i] === undefined) seriesColors[i] = PLOT_COLORS[i % PLOT_COLORS.length];
+          const col = seriesColors[i];
+          const label = seriesLabels[i] || ("ch" + (i + 1));
+          html += '<span class="leg-item" style="color:' + col + '" onclick="cycleSeriesColor(' + i + ')">█ ' + label + '</span>';
+        }
+        html += '<span class="leg-bg" onclick="toggleBg()">bg</span>';
+        legend.innerHTML = html;
+      }
+
+      function cycleSeriesColor(i) {
+        const idx = PLOT_COLORS.indexOf(seriesColors[i]);
+        seriesColors[i] = PLOT_COLORS[(idx + 1) % PLOT_COLORS.length];
+        updateLegend();
+        draw();
+      }
+
+      function toggleBg() {
+        plotBgDark = !plotBgDark;
+        canvas.style.background = plotBgDark ? "#020502" : "#f5f5f5";
+        draw();
       }
 
       $("toggle").addEventListener("click", () => {
@@ -680,21 +727,36 @@ var SerialPlotterPanel = class {
       window.addEventListener("message", (event) => {
         const msg = event.data;
         if (msg.type === "points") {
-          for (const p of msg.points) {
+          const labelBatch = Array.isArray(msg.labels) ? msg.labels : [];
+          let labelsUpdated = false;
+          for (let pi = 0; pi < msg.points.length; pi++) {
+            const p = msg.points[pi];
             series.push(p);
             if (series.length > maxPoints) series.shift();
             for (const val of p) {
               if (val > yMax) yMax = val + 0.1;
               if (val < yMin) yMin = val - 0.1;
             }
+            if (p.length > numSeriesTotal) { numSeriesTotal = p.length; labelsUpdated = true; }
+            const rowLabels = labelBatch[pi];
+            if (rowLabels && rowLabels.length > 0) {
+              for (let li = 0; li < rowLabels.length; li++) {
+                if (seriesLabels[li] !== rowLabels[li]) { seriesLabels[li] = rowLabels[li]; labelsUpdated = true; }
+              }
+            }
           }
+          if (labelsUpdated) updateLegend();
           draw();
         } else if (msg.type === "status") {
           setStatus(msg.status);
         } else if (msg.type === "clear") {
           series.length = 0;
+          seriesLabels.length = 0;
+          seriesColors = [...PLOT_COLORS];
+          numSeriesTotal = 0;
           yMin = -0.2;
           yMax = 1.2;
+          updateLegend();
           draw();
         }
       });
@@ -947,7 +1009,7 @@ var ExamplesPanel = class {
   }
 };
 
-// src/ui/managersPanel.ts
+// src/ui/managersPanel.ts (parseInstalledBoards retained; ManagersPanel webview class removed — sidebar tab is used instead)
 var vscode5 = __toESM(require("vscode"));
 function parseInstalledBoards(rawJson) {
   const parsed = JSON.parse(rawJson);
@@ -981,285 +1043,7 @@ function parseLibraries(rawJson) {
   out.sort((a, b) => a.name.localeCompare(b.name));
   return out;
 }
-var ManagersPanel = class {
-  constructor(context, output, actions) {
-    this.context = context;
-    this.output = output;
-    this.actions = actions;
-  }
-  context;
-  output;
-  actions;
-  panel = null;
-  show() {
-    if (!this.panel) {
-      this.panel = vscode5.window.createWebviewPanel(
-        "arduinoMcp.managers",
-        "Mngrs",
-        vscode5.ViewColumn.Beside,
-        { enableScripts: true }
-      );
-      this.panel.onDidDispose(() => this.panel = null);
-      this.panel.webview.onDidReceiveMessage((msg) => void this.onMessage(msg));
-    } else {
-      this.panel.title = "Mngrs";
-      this.panel.reveal(vscode5.ViewColumn.Beside);
-    }
-    this.panel.webview.html = this.html();
-  }
-  async onMessage(msg) {
-    if (!this.panel || !msg?.type) return;
-    const post = (payload) => void this.panel?.webview.postMessage(payload);
-    try {
-      if (msg.type === "updateIndexes") {
-        this.output.appendLine("[Mngrs] Updating board and library indexes...");
-        const res1 = await runArduinoCli(["update"]);
-        this.output.appendLine(res1.stdout);
-        this.output.appendLine(res1.stderr);
-        const boards = await runArduinoCli(["core", "list", "--json"]);
-        if (boards.success) {
-          const rows = parseInstalledBoards(boards.stdout);
-          post({ type: "boards", rows });
-          this.output.appendLine(`[Mngrs] Loaded ${rows.length} installed boards.`);
-        } else {
-          post({ type: "error", error: "Failed. See Output > Arduino Grease." });
-        }
-      } else if (msg.type === "boardSearch") {
-        const boards = await runArduinoCli(["core", "list", "--json"]);
-        if (!boards.success) {
-          post({ type: "error", error: "Failed. See Output > Arduino Grease." });
-          return;
-        }
-        post({ type: "boards", rows: parseInstalledBoards(boards.stdout), query: String(msg.query ?? "") });
-      } else if (msg.type === "chooseTarget") {
-        const fqbn = String(msg.fqbn ?? "").trim();
-        if (!fqbn) {
-          post({ type: "error", error: "Select a board first." });
-          return;
-        }
-        this.output.appendLine(`[Mngrs] Choosing target ${fqbn}...`);
-        await this.actions.chooseTarget(fqbn);
-      } else if (msg.type === "uploadFirmwareToTarget") {
-        const fqbn = String(msg.fqbn ?? "").trim();
-        if (!fqbn) {
-          post({ type: "error", error: "Select a board first." });
-          return;
-        }
-        this.output.appendLine(`[Mngrs] Upload firmware to target ${fqbn}...`);
-        await this.actions.uploadFirmwareToTarget(fqbn);
-      } else if (msg.type === "libList") {
-        this.output.appendLine("[Mngrs] Updating library index...");
-        const upd = await runArduinoCli(["lib", "update-index"]);
-        this.output.appendLine(upd.stdout);
-        this.output.appendLine(upd.stderr);
-        const res = await runArduinoCli(["lib", "list", "--json"]);
-        if (!res.success) {
-          post({ type: "error", error: res.stderr || res.stdout });
-          return;
-        }
-        post({ type: "libraries", rows: parseLibraries(res.stdout) });
-      } else if (msg.type === "libSearch") {
-        const q = String(msg.query ?? "").trim();
-        const res = await runArduinoCli(["lib", "search", q, "--json"]);
-        if (!res.success) {
-          post({ type: "error", error: res.stderr || res.stdout });
-          return;
-        }
-        post({ type: "libraries", rows: parseLibraries(res.stdout) });
-      } else if (msg.type === "libInstallSelected") {
-        const name = String(msg.name ?? "").trim();
-        if (!name) {
-          post({ type: "error", error: "Select a library first." });
-          return;
-        }
-        this.output.appendLine(`[Mngrs] Installing library ${name}...`);
-        const res = await runArduinoCli(["lib", "install", name]);
-        this.output.appendLine(res.stdout);
-        this.output.appendLine(res.stderr);
-        if (!res.success) {
-          post({ type: "error", error: res.stderr || res.stdout });
-        }
-      }
-    } catch (e) {
-      const err = e instanceof Error ? e.message : String(e);
-      this.output.appendLine(`[Mngrs] Error: ${err}`);
-      post({ type: "error", error: err });
-    }
-  }
-  html() {
-    return `<!DOCTYPE html>
-<html>
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <style>
-      :root {
-        --bg: #0b0f0b;
-        --panel: #121912;
-        --ink: #d5ffd5;
-        --soft: #bce6bc;
-        --muted: #7ca57c;
-        --stroke: #335233;
-      }
-      body { margin: 0; padding: 12px; background: var(--bg); color: var(--ink); font-family: Consolas, Menlo, Monaco, "Courier New", monospace; font-size:11px; }
-      .card { border: 1px solid var(--stroke); background: var(--panel); padding: 9px; border-radius: 8px; margin-bottom: 9px; }
-      .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-      input, button {
-        background: #0d130d;
-        color: var(--ink);
-        border: 1px solid var(--stroke);
-        border-radius: 6px;
-        padding: 6px 7px;
-        font-size: 11px;
-      }
-      input { min-width: 200px; }
-      a { color: var(--ink); cursor: pointer; font-family: Consolas, Menlo, Monaco, "Courier New", monospace; font-size: 11px; text-decoration: none; display: inline; }
-      a:hover { text-decoration: underline; }
-      a.c-std { color: var(--ink); }
-      a.c-green { color: #55efc4; }
-      a.c-amber { color: #f6c542; }
-      .muted { color: var(--muted); font-size: 10px; }
-      .split { display: grid; grid-template-columns: 1.1fr 1fr; gap: 9px; }
-      @media (max-width: 980px) { .split { grid-template-columns: 1fr; } }
-      .list { max-height: 40vh; overflow:auto; display:flex; flex-direction:column; gap:7px; margin-top:8px; }
-      .item { border: 1px solid var(--stroke); border-radius: 7px; padding: 7px; background: #0d130d; cursor: pointer; }
-      .item.active { border-color: #58aa58; box-shadow: 0 0 0 1px #58aa58 inset; }
-      .name { font-weight: 700; font-size: 11px; color: var(--soft); }
-      .meta { color: var(--muted); font-size: 10px; margin-top: 2px; overflow-wrap: anywhere; }
-      #err { color:#ffb4b4; white-space:pre-wrap; }
-    </style>
-  </head>
-  <body>
-    <div class="card">
-      <div class="row">
-        <div class="muted">Mngrs</div>
-        <div style="margin-left:auto"><a class="c-std" id="update" href="#" onclick="event.preventDefault()">||Update indexes||</a></div>
-      </div>
-      <div id="err"></div>
-    </div>
-
-    <div class="split">
-      <div class="card">
-        <div class="row">
-          <a class="c-std" id="chooseTarget" href="#" onclick="event.preventDefault()">||Choose as target||</a>
-          <a class="c-amber" id="uploadFirmware" href="#" onclick="event.preventDefault()">||Upload firmware||</a>
-        </div>
-        <div class="row" style="margin-top:8px">
-          <input id="boardQuery" placeholder="Search board"/>
-          <a class="c-std" id="boardSearch" href="#" onclick="event.preventDefault()">||Search||</a>
-        </div>
-        <div class="list" id="boardsList"></div>
-      </div>
-
-      <div class="card">
-        <div class="row">
-          <a class="c-std" id="libList" href="#" onclick="event.preventDefault()">||List installed||</a>
-          <a class="c-green" id="libInstallSelected" href="#" onclick="event.preventDefault()">||Install library||</a>
-        </div>
-        <div class="row" style="margin-top:8px">
-          <input id="libQuery" placeholder="Search library"/>
-          <a class="c-std" id="libSearch" href="#" onclick="event.preventDefault()">||Search||</a>
-        </div>
-        <div class="list" id="libsList"></div>
-      </div>
-    </div>
-
-    <p>
-      Install Github libraries with terminal commands, such as 'arduino-cli lib install --git-url https://github.com/arduino-libraries/WiFi101.git'
-    </p>
-
-    <script>
-      const vscode = acquireVsCodeApi();
-      const $ = (id) => document.getElementById(id);
-
-      let boards = [];
-      let libs = [];
-      let selectedFqbn = "";
-      let selectedLib = "";
-      let boardQuery = "";
-
-      function esc(s) {
-        return String(s).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
-      }
-
-      function renderBoards() {
-        const filtered = boards.filter((b) => {
-          const q = boardQuery.toLowerCase();
-          if (!q) return true;
-          return (b.name + " " + b.fqbn + " " + b.platform).toLowerCase().includes(q);
-        });
-
-        if (!filtered.length) {
-          $("boardsList").innerHTML = "<div class='muted'>No installed boards found.</div>";
-          return;
-        }
-        $("boardsList").innerHTML = filtered.map((b) => {
-          const active = selectedFqbn === b.fqbn ? "active" : "";
-          return "<div class='item " + active + "' data-fqbn='" + esc(b.fqbn) + "'><div class='name'>" + esc(b.name) + "</div><div class='meta'>" + esc(b.fqbn) + " | " + esc(b.platform) + " @ " + esc(b.version) + "</div></div>";
-        }).join("");
-
-        document.querySelectorAll("#boardsList .item").forEach((el) => {
-          el.addEventListener("click", () => {
-            selectedFqbn = el.getAttribute("data-fqbn") || "";
-            renderBoards();
-          });
-        });
-      }
-
-      function renderLibs() {
-        if (!libs.length) {
-          $("libsList").innerHTML = "<div class='muted'>No libraries loaded.</div>";
-          return;
-        }
-        $("libsList").innerHTML = libs.map((l) => {
-          const active = selectedLib === l.name ? "active" : "";
-          const right = l.version || l.author || l.sentence || "";
-          return "<div class='item " + active + "' data-lib='" + esc(l.name) + "'><div class='name'>" + esc(l.name) + "</div><div class='meta'>" + esc(right) + "</div></div>";
-        }).join("");
-
-        document.querySelectorAll("#libsList .item").forEach((el) => {
-          el.addEventListener("click", () => {
-            selectedLib = el.getAttribute("data-lib") || "";
-            renderLibs();
-          });
-        });
-      }
-
-      $("update").addEventListener("click", () => vscode.postMessage({ type: "updateIndexes" }));
-      $("boardSearch").addEventListener("click", () => {
-        boardQuery = $("boardQuery").value || "";
-        vscode.postMessage({ type: "boardSearch", query: boardQuery });
-      });
-      $("chooseTarget").addEventListener("click", () => vscode.postMessage({ type: "chooseTarget", fqbn: selectedFqbn }));
-      $("uploadFirmware").addEventListener("click", () => vscode.postMessage({ type: "uploadFirmwareToTarget", fqbn: selectedFqbn }));
-
-      $("libList").addEventListener("click", () => vscode.postMessage({ type: "libList" }));
-      $("libSearch").addEventListener("click", () => vscode.postMessage({ type: "libSearch", query: $("libQuery").value }));
-      $("libInstallSelected").addEventListener("click", () => vscode.postMessage({ type: "libInstallSelected", name: selectedLib }));
-
-      window.addEventListener("message", (event) => {
-        const msg = event.data;
-        if (msg.type === "error") {
-          $("err").textContent = msg.error || "";
-        } else if (msg.type === "boards") {
-          boards = Array.isArray(msg.rows) ? msg.rows : [];
-          if (!selectedFqbn && boards.length) selectedFqbn = boards[0].fqbn;
-          if (typeof msg.query === "string") boardQuery = msg.query;
-          renderBoards();
-        } else if (msg.type === "libraries") {
-          libs = Array.isArray(msg.rows) ? msg.rows : [];
-          if (!selectedLib && libs.length) selectedLib = libs[0].name;
-          renderLibs();
-        }
-      });
-
-      vscode.postMessage({ type: "updateIndexes" });
-      vscode.postMessage({ type: "libList" });
-    </script>
-  </body>
-</html>`;
-  }
-};
+// ManagersPanel webview class removed — the embedded sidebar managers tab (panel-managers) is the active UI.
 
 // src/ui/boardTemplatePanel.ts
 var vscode6 = __toESM(require("vscode"));
@@ -1470,6 +1254,13 @@ var ArduinoToolbarViewProvider = class {
       if (!inoFile) { vscode7.window.showWarningMessage("Arduino Grease: No .ino file found in this example."); return; }
       const doc = await vscode7.workspace.openTextDocument(vscode7.Uri.file(inoFile));
       await vscode7.window.showTextDocument(doc, { preview: false });
+      await vscode7.commands.executeCommand("workbench.action.files.setActiveEditorReadonlyInSession");
+      vscode7.window.showInformationMessage(
+        "This is a read-only example. Save a copy to edit it.",
+        "Save As New Sketch"
+      ).then((choice) => {
+        if (choice === "Save As New Sketch") vscode7.commands.executeCommand("workbench.action.files.saveAs");
+      });
     } else {
       const post = (payload) => void this.view?.webview.postMessage(payload);
       try {
@@ -1557,6 +1348,26 @@ var ArduinoToolbarViewProvider = class {
             post({ type: "mgrError", error: res.stderr || res.stdout });
           } else {
             vscode7.window.showInformationMessage(`Arduino Grease: Library ${input} installed.`);
+          }
+        } else if (msg.type === "boardCatalogInstall") {
+          const entry = msg.entry;
+          if (!entry?.installCommand) { post({ type: "mgrError", error: "Invalid board entry." }); return; }
+          this.output.appendLine(`[Mngrs] Installing board platform: ${entry.name}...`);
+          if (entry.url) {
+            const addUrl = await runArduinoCli(["config", "add", "board_manager.additional_urls", entry.url]);
+            this.output.appendLine(addUrl.stdout);
+            this.output.appendLine(addUrl.stderr);
+            await runArduinoCli(["update"]);
+          }
+          const resCore = await runArduinoCli(["core", "install", entry.installCommand]);
+          this.output.appendLine(resCore.stdout);
+          this.output.appendLine(resCore.stderr);
+          if (!resCore.success) {
+            post({ type: "mgrError", error: resCore.stderr || resCore.stdout });
+          } else {
+            vscode7.window.showInformationMessage(`Arduino Grease: ${entry.name} installed.`);
+            const boards2 = await runArduinoCli(["core", "list", "--json"]);
+            if (boards2.success) post({ type: "boards", rows: parseInstalledBoards(boards2.stdout) });
           }
         } else if (msg.type === "serialOff") {
           await this.actions.serialOff();
@@ -1673,7 +1484,7 @@ var ArduinoToolbarViewProvider = class {
             </div>
             <input id="boardQuery" class="boardQuery" placeholder="arduino, esp32, rp2040..." />
             <div class="mgr-list" id="boardsList"></div>
-            <a class="c-amber" id="uploadFirmwareBtn" href="#" onclick="event.preventDefault()">||Upload firmware||</a>
+            <a class="c-amber" id="installBoardBtn" href="#" onclick="event.preventDefault()" style="font-size:10px;margin-top:6px;display:block">||Install new board||</a>
           </div>
         </div>
         <div class="mgr-section">
@@ -1773,7 +1584,7 @@ function switchTab(panel) {
   if (panel === 'examples') { vscode.postMessage({type:'serialOff'}); vscode.postMessage({type:'list',library:''}); }
 }
 
-const ACCENT_COLORS = ['#007ACC','#8B0000','#CC5500','#B8860B','#8B0060','#6A0DAD','#006400'];
+const ACCENT_COLORS = ['#005FA0','#6B0000','#A34300','#8F6809','#6B004A','#520A85','#004D00'];
 let accentIndex = 0;
 function cycleAccent() {
   accentIndex = (accentIndex + 1) % ACCENT_COLORS.length;
@@ -1987,6 +1798,10 @@ window.addEventListener('message', event => {
     boards = Array.isArray(msg.rows) ? msg.rows : [];
     if (!selectedFqbn && boards.length) selectedFqbn = boards[0].fqbn;
     if (typeof msg.query === "string") boardQuery = msg.query;
+    boardMode = 'installed';
+    selectedCatalogId = null;
+    const iBtn = document.getElementById('installBoardBtn');
+    if (iBtn) iBtn.textContent = '||Install new board||';
     renderBoards();
   } else if (msg.type === 'libraries') {
     libs = Array.isArray(msg.rows) ? msg.rows : [];
@@ -2003,10 +1818,32 @@ let libs = [];
 let selectedFqbn = "";
 let selectedLib = "";
 let boardQuery = "";
+let boardMode = 'installed';
+let selectedCatalogId = null;
+const BOARD_CATALOG = [
+  {id:"esp8266:esp8266",name:"ESP8266 Boards",vendor:"ESP8266 Community",tags:["wifi","iot","nodemcu","wemos","esp8266"],url:"https://arduino.esp8266.com/stable/package_esp8266com_index.json",installCommand:"esp8266:esp8266",exampleBoards:["NodeMCU 1.0","Wemos D1 Mini","Generic ESP8266"]},
+  {id:"esp32:esp32",name:"ESP32 Boards (Espressif)",vendor:"Espressif",tags:["wifi","bluetooth","iot","esp32","s2","s3","c3"],url:"https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json",installCommand:"esp32:esp32",exampleBoards:["ESP32 Dev Module","ESP32-S3","ESP32-C3","XIAO ESP32S3"]},
+  {id:"rp2040:rp2040",name:"Raspberry Pi Pico / RP2040",vendor:"Earle Philhower",tags:["rp2040","pico","raspberry pi","arm"],url:"https://github.com/earlephilhower/arduino-pico/releases/download/global/package_rp2040_index.json",installCommand:"rp2040:rp2040",exampleBoards:["Raspberry Pi Pico","Raspberry Pi Pico W","Adafruit Feather RP2040"]},
+  {id:"arduino:mbed_rp2040",name:"Raspberry Pi Pico (Arduino Official)",vendor:"Arduino",tags:["rp2040","pico","mbed","arm"],url:null,installCommand:"arduino:mbed_rp2040",exampleBoards:["Raspberry Pi Pico"]},
+  {id:"adafruit:avr",name:"Adafruit AVR Boards",vendor:"Adafruit",tags:["adafruit","avr","flora","gemma","trinket","wearable"],url:"https://adafruit.github.io/arduino-board-index/package_adafruit_index.json",installCommand:"adafruit:avr",exampleBoards:["Adafruit Flora","Adafruit Gemma","Adafruit Trinket"]},
+  {id:"adafruit:samd",name:"Adafruit SAMD Boards",vendor:"Adafruit",tags:["adafruit","samd","feather","m0","m4","circuit playground"],url:"https://adafruit.github.io/arduino-board-index/package_adafruit_index.json",installCommand:"adafruit:samd",exampleBoards:["Feather M0","Feather M4 Express","ItsyBitsy M4"]},
+  {id:"adafruit:nrf52",name:"Adafruit nRF52 Boards",vendor:"Adafruit",tags:["adafruit","nrf52","bluetooth","ble","nordic"],url:"https://adafruit.github.io/arduino-board-index/package_adafruit_index.json",installCommand:"adafruit:nrf52",exampleBoards:["Feather nRF52840 Express"]},
+  {id:"SparkFun:avr",name:"SparkFun AVR Boards",vendor:"SparkFun",tags:["sparkfun","avr","redboard","pro micro","lilypad"],url:"https://raw.githubusercontent.com/sparkfun/Arduino_Boards/master/IDE_Board_Manager/package_sparkfun_index.json",installCommand:"SparkFun:avr",exampleBoards:["SparkFun RedBoard","SparkFun Pro Micro"]},
+  {id:"SparkFun:samd",name:"SparkFun SAMD Boards",vendor:"SparkFun",tags:["sparkfun","samd","samd21","thing plus"],url:"https://raw.githubusercontent.com/sparkfun/Arduino_Boards/master/IDE_Board_Manager/package_sparkfun_index.json",installCommand:"SparkFun:samd",exampleBoards:["SparkFun SAMD21 Mini","SparkFun Thing Plus"]},
+  {id:"STMicroelectronics:stm32",name:"STM32 Boards",vendor:"STMicroelectronics",tags:["stm32","nucleo","blue pill","arm","cortex-m"],url:"https://raw.githubusercontent.com/stm32duino/BoardManagerFiles/main/package_stmicroelectronics_index.json",installCommand:"STMicroelectronics:stm32",exampleBoards:["Nucleo-64","Generic STM32F1","Blue Pill"]},
+  {id:"ATTinyCore:avr",name:"ATtiny Boards",vendor:"Community",tags:["attiny","attiny85","attiny84","avr","bare chip"],url:"https://raw.githubusercontent.com/damellis/attiny/ide-1.6.x-boards-manager/package_damellis_attiny_index.json",installCommand:"ATTinyCore:avr",exampleBoards:["ATtiny85","ATtiny84","ATtiny45"]},
+  {id:"MiniCore:avr",name:"MiniCore (MCUdude)",vendor:"MCUdude",tags:["avr","atmega328","atmega168","bare chip"],url:"https://mcudude.github.io/MiniCore/package_MCUdude_MiniCore_index.json",installCommand:"MiniCore:avr",exampleBoards:["ATmega328","ATmega168","ATmega88"]},
+  {id:"MegaCore:avr",name:"MegaCore (MCUdude)",vendor:"MCUdude",tags:["avr","atmega2560","mega","bare chip"],url:"https://mcudude.github.io/MegaCore/package_MCUdude_MegaCore_index.json",installCommand:"MegaCore:avr",exampleBoards:["ATmega2560","ATmega1280"]},
+  {id:"MightyCore:avr",name:"MightyCore (MCUdude)",vendor:"MCUdude",tags:["avr","atmega1284","atmega644","bare chip"],url:"https://mcudude.github.io/MightyCore/package_MCUdude_MightyCore_index.json",installCommand:"MightyCore:avr",exampleBoards:["ATmega1284","ATmega644"]},
+  {id:"Seeeduino:samd",name:"Seeed SAMD Boards",vendor:"Seeed Studio",tags:["seeed","xiao","wio terminal","samd"],url:"https://files.seeedstudio.com/arduino/package_seeeduino_boards_index.json",installCommand:"Seeeduino:samd",exampleBoards:["Seeeduino XIAO","Wio Terminal"]},
+  {id:"Seeeduino:avr",name:"Seeed AVR Boards",vendor:"Seeed Studio",tags:["seeed","seeeduino","avr"],url:"https://files.seeedstudio.com/arduino/package_seeeduino_boards_index.json",installCommand:"Seeeduino:avr",exampleBoards:["Seeeduino v4.2","Seeeduino Lotus"]},
+  {id:"SparkFun:apollo3",name:"SparkFun Apollo3 Boards",vendor:"SparkFun",tags:["sparkfun","artemis","apollo3","arm","ble"],url:"https://raw.githubusercontent.com/sparkfun/Arduino_Apollo3/master/package_sparkfun_apollo3_index.json",installCommand:"SparkFun:apollo3",exampleBoards:["SparkFun Artemis Thing Plus","RedBoard Artemis Nano"]}
+];
 
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;');}
 
 function renderBoards() {
+  if (boardMode === 'catalog') { renderCatalogBoards(); return; }
   const filtered = boards.filter((b) => {
     const q = boardQuery.toLowerCase();
     if (!q) return true;
@@ -2017,17 +1854,49 @@ function renderBoards() {
     return;
   }
   document.getElementById('boardsList').innerHTML = filtered.map((b) => {
-    const active = selectedFqbn === b.fqbn ? "active" : "";
     const border = selectedFqbn === b.fqbn ? "border-color: #58aa58; box-shadow: 0 0 0 1px #58aa58 inset;" : "";
     return "<div class='mgr-item' style='" + border + "' data-fqbn='" + esc(b.fqbn) + "'><div class='name'>" + esc(b.name) + "</div><div class='meta'>" + esc(b.fqbn) + " | " + esc(b.platform) + " @ " + esc(b.version) + "</div></div>";
   }).join("");
-
   document.querySelectorAll("#boardsList .mgr-item").forEach((el) => {
     el.addEventListener("click", () => {
       selectedFqbn = el.getAttribute("data-fqbn") || "";
       renderBoards();
     });
   });
+}
+
+function renderCatalogBoards() {
+  const q = boardQuery.toLowerCase();
+  const filtered = q ? BOARD_CATALOG.filter(b =>
+    (b.name + ' ' + b.vendor + ' ' + b.tags.join(' ')).toLowerCase().includes(q)
+  ) : BOARD_CATALOG;
+  if (!filtered.length) {
+    document.getElementById('boardsList').innerHTML = "<div class='muted' style='font-size:10px'>No matching boards.</div>";
+    return;
+  }
+  document.getElementById('boardsList').innerHTML = filtered.map((b) => {
+    const border = selectedCatalogId === b.id ? "border-color: #f6c542; box-shadow: 0 0 0 1px #f6c542 inset;" : "";
+    return "<div class='mgr-item' style='" + border + "' data-catalog-id='" + esc(b.id) + "'><div class='name'>" + esc(b.name) + "</div><div class='meta'>" + esc(b.vendor) + " | " + esc(b.exampleBoards.slice(0,3).join(', ')) + "</div></div>";
+  }).join("");
+  document.querySelectorAll("#boardsList [data-catalog-id]").forEach((el) => {
+    el.addEventListener("click", () => {
+      selectedCatalogId = el.getAttribute("data-catalog-id") || "";
+      renderCatalogBoards();
+    });
+    el.addEventListener("dblclick", () => {
+      selectedCatalogId = el.getAttribute("data-catalog-id") || "";
+      installSelectedCatalogBoard();
+    });
+  });
+}
+
+function installSelectedCatalogBoard() {
+  if (!selectedCatalogId) return;
+  const entry = BOARD_CATALOG.find(b => b.id === selectedCatalogId);
+  if (!entry) return;
+  const btn = document.getElementById('installBoardBtn');
+  if (btn) btn.textContent = '||Installing...||';
+  vscode.postMessage({ type: 'boardCatalogInstall', entry: { id: entry.id, name: entry.name, installCommand: entry.installCommand, url: entry.url } });
 }
 
 function renderLibs() {
@@ -2050,15 +1919,36 @@ function renderLibs() {
 }
 
 const $ = (id) => document.getElementById(id);
-$("updateIdx")?.addEventListener("click", () => vscode.postMessage({ type: "updateIndexes" }));
+$("updateIdx")?.addEventListener("click", () => {
+  boardMode = 'installed';
+  selectedCatalogId = null;
+  const btn = $("installBoardBtn");
+  if (btn) btn.textContent = '||Install new board||';
+  vscode.postMessage({ type: "updateIndexes" });
+});
 $("boardQuery")?.addEventListener("keydown", (e) => {
   if(e.key === 'Enter') {
     boardQuery = $("boardQuery").value || "";
-    vscode.postMessage({ type: "boardSearch", query: boardQuery });
+    if (boardMode === 'catalog') { renderCatalogBoards(); }
+    else { vscode.postMessage({ type: "boardSearch", query: boardQuery }); }
+  }
+});
+$("boardQuery")?.addEventListener("input", () => {
+  if (boardMode === 'catalog') { boardQuery = $("boardQuery").value || ""; renderCatalogBoards(); }
+});
+$("installBoardBtn")?.addEventListener("click", () => {
+  if (boardMode === 'installed') {
+    boardMode = 'catalog';
+    selectedCatalogId = null;
+    boardQuery = $("boardQuery")?.value || "";
+    const btn = $("installBoardBtn");
+    if (btn) btn.textContent = '||Confirm install||';
+    renderCatalogBoards();
+  } else {
+    installSelectedCatalogBoard();
   }
 });
 $("chooseTargetBtn")?.addEventListener("click", () => vscode.postMessage({ type: "chooseTarget", fqbn: selectedFqbn }));
-$("uploadFirmwareBtn")?.addEventListener("click", () => vscode.postMessage({ type: "uploadFirmwareToTarget", fqbn: selectedFqbn }));
 $("libListBtn")?.addEventListener("click", () => vscode.postMessage({ type: "libList" }));
 $("libQuery")?.addEventListener("keydown", (e) => {
   if(e.key === 'Enter') {
@@ -2084,7 +1974,8 @@ async function activate(context) {
   context.subscriptions.push(output);
   output.appendLine("Arduino Grease activating...");
   // ── First-install setup: apply Grease theme + move Activity Bar to top ───
-  const FIRST_INSTALL_KEY = "arduinoMcp.firstInstallDone_1_0_5";
+  vscode8.workspace.getConfiguration().update("output.smartScroll.enabled", false, vscode8.ConfigurationTarget.Global).then(void 0, () => {});
+  const FIRST_INSTALL_KEY = "arduinoMcp.firstInstallDone_1_0_6";
   const firstInstallDone = context.globalState.get(FIRST_INSTALL_KEY);
   if (!firstInstallDone) {
     try {
@@ -2296,17 +2187,7 @@ async function activate(context) {
       currentTarget = { port: onlyPort.port, fqbn: null };
       await saveTarget(context, currentTarget);
     }
-    if (currentTarget?.port) {
-      const samePort = lastCandidates.filter((c) => c.port === currentTarget.port && typeof c.fqbn === "string");
-      if (samePort.length > 0) {
-        const detectedFqbn = samePort[0].fqbn;
-        if (detectedFqbn && detectedFqbn !== currentTarget.fqbn) {
-          currentTarget = { port: currentTarget.port, fqbn: detectedFqbn };
-          await saveTarget(context, currentTarget);
-          output.appendLine(`Target updated to current port FQBN: ${detectedFqbn}`);
-        }
-      }
-    }
+    // FQBN is never auto-overridden once chosen — only the user can change it via ||Choose as target||
     if (!currentTarget) {
       if (portsNow.size === 0) {
         setWarning("No serial ports detected");
@@ -2356,18 +2237,15 @@ async function activate(context) {
     output.show(true);
     const detection = await refreshBoards(output);
     lastCandidates = detection.candidates;
-    if (currentTarget?.port) {
-      const samePort = lastCandidates.filter((c) => c.port === currentTarget.port && typeof c.fqbn === "string");
-      if (samePort.length > 0) {
-        const chosen = samePort[0];
-        currentTarget = { port: chosen.port, fqbn: chosen.fqbn };
-        await saveTarget(context, currentTarget);
-        setOk(currentTarget);
+    if (currentTarget?.port && currentTarget?.fqbn) {
+      // Board already chosen — let the user pick a new one instead of silently refreshing
+      const picked = await promptForTarget(context, lastCandidates);
+      if (picked) {
+        currentTarget = picked;
+        setOk(picked);
         refreshToolbarState();
-        output.appendLine(`Refreshed target on same port: ${currentTarget.fqbn} @ ${currentTarget.port}`);
-        portsRefreshArmed = false;
-        return;
       }
+      return;
     }
     if (portsRefreshArmed) {
       await vscode8.commands.executeCommand("workbench.action.closeQuickOpen");
@@ -2525,31 +2403,6 @@ async function activate(context) {
     }
     vscode8.window.showInformationMessage("Arduino Grease: Bootloader burned to target.");
   };
-  const managersPanel = new ManagersPanel(context, output, {
-    chooseTarget: async (fqbn) => {
-      const port = currentTarget?.port ?? lastCandidates[0]?.port ?? null;
-      if (!port) {
-        vscode8.window.showWarningMessage("Arduino Grease: No port detected. Connect a board first.");
-        return;
-      }
-      currentTarget = { port, fqbn };
-      await saveTarget(context, currentTarget);
-      setOk(currentTarget);
-      refreshToolbarState();
-    },
-    uploadFirmwareToTarget: async (fqbn) => {
-      const port = currentTarget?.port ?? lastCandidates[0]?.port ?? null;
-      if (!port) {
-        vscode8.window.showWarningMessage("Arduino Grease: No port detected. Connect a board first.");
-        return;
-      }
-      currentTarget = { port, fqbn };
-      await saveTarget(context, currentTarget);
-      setOk(currentTarget);
-      refreshToolbarState();
-      await runFirmwareUpload(fqbn, port);
-    }
-  });
   await reconcileTarget();
   await delay(3000);
   await checkServerHealth(true);
@@ -2737,11 +2590,11 @@ async function activate(context) {
       const defaultPort = currentTarget?.port ?? lastCandidates[0]?.port ?? null;
       serialPlotterPanel.show(defaultPort, true);
       if (!serialMonitorPanel.isConnected && defaultPort) {
-        await serialMonitorPanel.start(defaultPort, 9600);
+        void serialMonitorPanel.start(defaultPort, 9600);
       }
       setTimeout(() => {
         void vscode8.commands.executeCommand("workbench.action.moveEditorToNewWindow");
-      }, 350);
+      }, 500);
       refreshToolbarState();
     }),
     vscode8.commands.registerCommand("arduinoMcp.openExamples", async () => {
@@ -2753,21 +2606,12 @@ async function activate(context) {
       }
       examplesPanel.show(currentTarget?.fqbn ?? null);
     }),
-    vscode8.commands.registerCommand("arduinoMcp.openManagers", async () => {
-      output.show(true);
-      if (serialMonitorPanel.isConnected) {
-        await serialMonitorPanel.stop();
-        output.appendLine("Serial disconnected (Managers panel opened).");
-        refreshToolbarState();
-      }
-      managersPanel.show();
-    }),
     vscode8.commands.registerCommand("arduinoMcp.openBoardTemplate", async () => {
       output.show(true);
       boardTemplatePanel.show({ fqbn: currentTarget?.fqbn ?? null, port: currentTarget?.port ?? null });
     }),
     vscode8.commands.registerCommand("arduinoMcp.cycleAccentColor", async () => {
-      const ACCENT_COLORS = ["#007ACC", "#8B0000", "#CC5500", "#B8860B", "#8B0060", "#6A0DAD", "#006400"];
+      const ACCENT_COLORS = ["#005FA0", "#6B0000", "#A34300", "#8F6809", "#6B004A", "#520A85", "#004D00"];
       const config = vscode8.workspace.getConfiguration("workbench");
       const current = config.get("colorCustomizations") || {};
       const currentColor = current["statusBar.background"] || "#007ACC";
