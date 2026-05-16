@@ -3,3 +3,6 @@
 
 # Arduino sketches
 *.ino
+
+# Node dependencies
+extension/node_modules/

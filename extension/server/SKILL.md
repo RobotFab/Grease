@@ -7,6 +7,17 @@
 
 ---
 
+## Connection
+
+- **MCP endpoint:** `http://127.0.0.1:3333/mcp` (started automatically by the VS Code extension)
+- **Auth key:** `~/.grease-mcp-auth` → `key` field; auto-synced into IDE MCP configs on each server start
+- **Health check (no auth):** `GET http://127.0.0.1:3333/health`
+- **First action every session:** call `readSkill` — returns this document
+- **User SKILL.md (customizable):** `~/.grease/SKILL.md` — edit this file to persist project-specific rules across version updates
+- **IDE configs auto-updated on server start:** Claude Code, Claude Desktop, Cursor, Windsurf
+
+---
+
 ## Project Identity
 
 - **Extension**: Arduino Grease (VS Code / Cursor / Antigravity)

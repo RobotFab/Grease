@@ -68,7 +68,12 @@ async function startBundledServer(context, output, preferredPort = 3333) {
   const nodePath = process.env.ARDUINO_MCP_NODE_PATH || "node";
   const serverPath = context.asAbsolutePath(path.join("server", "server.mjs"));
   const { randomBytes } = await import("node:crypto");
-  const authKey = randomBytes(24).toString("hex");
+  let authKey;
+  try {
+    const stored = JSON.parse(fs3.readFileSync(path.join(os.homedir(), ".grease-mcp-auth"), "utf8"));
+    authKey = stored.key || null;
+  } catch (_e) {}
+  if (!authKey) { authKey = randomBytes(24).toString("hex"); }
   output.appendLine(`Starting bundled Arduino MCP server on port ${port}...`);
   const child = (0, import_node_child_process.spawn)(nodePath, [serverPath], {
     cwd: context.extensionPath,
@@ -175,10 +180,13 @@ Failed to parse JSON: ${e instanceof Error ? e.message : String(e)}`
   for (const p of ports) {
     const address = p?.port?.address;
     const protocol = p?.port?.protocol;
+    const vid = p?.port?.properties?.vid ?? null;
+    const pid = p?.port?.properties?.pid ?? null;
+    const serialNumber = p?.port?.properties?.serialNumber ?? null;
     const matching = Array.isArray(p?.matching_boards) ? p.matching_boards : [];
     if (matching.length === 0) {
       if (typeof address === "string") {
-        candidates.push({ port: address, protocol });
+        candidates.push({ port: address, protocol, vid, pid, serialNumber });
       }
       continue;
     }
@@ -187,7 +195,10 @@ Failed to parse JSON: ${e instanceof Error ? e.message : String(e)}`
         port: address,
         protocol,
         fqbn: b?.fqbn,
-        name: b?.name
+        name: b?.name,
+        vid,
+        pid,
+        serialNumber
       });
     }
   }
@@ -206,6 +217,24 @@ async function saveTarget(context, target) {
   }
   await context.globalState.update(TARGET_KEY, target);
 }
+var BOARD_MEMORY_KEY = "arduinoMcp.boardMemory";
+async function loadBoardMemory(context) {
+  return context.globalState.get(BOARD_MEMORY_KEY) ?? {};
+}
+async function saveBoardMemory(context, memory) {
+  await context.globalState.update(BOARD_MEMORY_KEY, memory);
+}
+function vidPidKey(vid, pid) {
+  if (!vid || !pid) return null;
+  return `${String(vid).toLowerCase()}:${String(pid).toLowerCase()}`;
+}
+function boardMemoryKeys(candidate) {
+  const keys = [];
+  if (candidate?.serialNumber) keys.push(`serial:${candidate.serialNumber}`);
+  if (candidate?.vid && candidate?.pid) keys.push(vidPidKey(candidate.vid, candidate.pid));
+  if (candidate?.fqbn) keys.push(`fqbn:${candidate.fqbn}`);
+  return keys;
+}
 async function refreshBoards(output) {
   const result = await detectBoardCandidates();
   if (!result.success) {
@@ -218,7 +247,8 @@ function pickLabel(c) {
   const parts = [c.name || "Unknown board", c.fqbn ? `(${c.fqbn})` : "(no fqbn)", c.port];
   return parts.join("  ");
 }
-async function promptForTarget(context, candidates) {
+async function promptForTarget(context, candidates, currentTarget) {
+  if (candidates.length === 0) return null;
   const items = candidates.map((c) => {
     const fqbn = typeof c.fqbn === "string" ? c.fqbn : null;
     return {
@@ -227,7 +257,16 @@ async function promptForTarget(context, candidates) {
       target: { port: c.port, fqbn }
     };
   });
-  if (items.length === 0) return null;
+  if (currentTarget?.fqbn) {
+    items.push({ kind: -1, label: "Change port only (keep current board)" });
+    for (const c of candidates) {
+      items.push({
+        label: `$(plug) ${c.port}`,
+        description: `Keep board: ${currentTarget.fqbn}`,
+        target: { port: c.port, fqbn: currentTarget.fqbn }
+      });
+    }
+  }
   const picked = await vscode.window.showQuickPick(items, {
     title: "Select Arduino board/port",
     placeHolder: "Pick the correct port (and board if known)",
@@ -310,6 +349,11 @@ async function getHealth() {
   const res = await fetch(`${baseUrl}/health`, { headers: { "x-grease-auth": _authKey } });
   if (!res.ok) throw new Error(`HTTP ${res.status} /health`);
   return await res.json();
+}
+async function syncTargetToServer(target) {
+  try {
+    await postJson("/target", { port: target?.port ?? null, fqbn: target?.fqbn ?? null });
+  } catch { /* server may not be ready */ }
 }
 async function serialOpen(args) {
   return postJson("/serial/open", args);
@@ -2039,13 +2083,31 @@ async function activate(context) {
   const boardTemplatePanel = new BoardTemplatePanel(context);
   const toolbar = new ArduinoToolbarViewProvider(context, output, {
     chooseTarget: async (fqbn) => {
-      const port = currentTarget?.port ?? lastCandidates[0]?.port ?? null;
+      // Match port by FQBN core family first (e.g. esp32:esp32:XIAO matches esp32:esp32:esp32)
+      const corePrefix = fqbn.split(":").slice(0, 2).join(":");
+      const candidate =
+        lastCandidates.find((c) => c.fqbn?.startsWith(corePrefix + ":") && typeof c.port === "string") ??
+        lastCandidates.find((c) => c.port === currentTarget?.port) ??
+        lastCandidates.find((c) => typeof c.port === "string") ??
+        null;
+      const port = candidate?.port ?? currentTarget?.port ?? null;
       if (!port) {
         vscode8.window.showWarningMessage("Arduino Grease: No port detected. Connect a board first.");
         return;
       }
-      currentTarget = { port, fqbn };
+      const memCandidate = candidate ?? lastCandidates.find((c) => c.port === port);
+      const keysToSave = boardMemoryKeys(memCandidate);
+      if (keysToSave.length > 0) {
+        const mem = await loadBoardMemory(context);
+        for (const k of keysToSave) mem[k] = { fqbn };
+        await saveBoardMemory(context, mem);
+        output.appendLine(`[BoardMemory] Saved (${keysToSave.join(", ")}) → ${fqbn}`);
+      } else {
+        output.appendLine(`[BoardMemory] Warning: no identifiers found for ${port} — memory not saved`);
+      }
+      currentTarget = { port, fqbn, userChosen: true };
       await saveTarget(context, currentTarget);
+      await syncTargetToServer(currentTarget);
       setOk(currentTarget);
       refreshToolbarState();
     },
@@ -2055,8 +2117,9 @@ async function activate(context) {
         vscode8.window.showWarningMessage("Arduino Grease: No port detected. Connect a board first.");
         return;
       }
-      currentTarget = { port, fqbn };
+      currentTarget = { port, fqbn, userChosen: true };
       await saveTarget(context, currentTarget);
+      await syncTargetToServer(currentTarget);
       setOk(currentTarget);
       refreshToolbarState();
       await runFirmwareUpload(fqbn, port);
@@ -2090,7 +2153,9 @@ async function activate(context) {
   let lastCandidates = [];
   let lastPorts = /* @__PURE__ */ new Set();
   let lastServerState = null;
+  let lastPortChangeVersion = 0;
   let currentTarget = await loadTarget(context);
+  if (currentTarget) await syncTargetToServer(currentTarget);
   const refreshToolbarState = () => {
     const config = vscode8.workspace.getConfiguration("workbench");
     const customizations = config.get("colorCustomizations") || {};
@@ -2143,6 +2208,10 @@ async function activate(context) {
         toolbar.view?.webview.postMessage({ type: "rainState", state: "idle" });
       }
       lastServerState = s;
+      if (typeof s.portChangeVersion === "number" && s.portChangeVersion !== lastPortChangeVersion) {
+        lastPortChangeVersion = s.portChangeVersion;
+        if (!s.uploading) void reconcileTarget();
+      }
 
       if (!ok) {
         output.appendLine("Problem with MCP Server");
@@ -2175,17 +2244,41 @@ async function activate(context) {
       output.appendLine(`Port ${currentTarget.port} disconnected. Clearing selected target.`);
       currentTarget = null;
       await saveTarget(context, null);
+      await syncTargetToServer(null);
     }
-    const candidatesWithFqbn = lastCandidates.filter((c) => typeof c.fqbn === "string" && typeof c.port === "string");
-    const portsOnly = lastCandidates.filter((c) => !c.fqbn && typeof c.port === "string");
-    if (!currentTarget && candidatesWithFqbn.length === 1) {
+    // Apply board memory, then deduplicate to one best candidate per port
+    const boardMem = await loadBoardMemory(context);
+    const resolvedCandidates = lastCandidates.map((c) => {
+      for (const k of boardMemoryKeys(c)) {
+        if (boardMem[k]) {
+          output.appendLine(`[BoardMemory] Restored ${boardMem[k].fqbn} for ${c.port} via ${k}`);
+          return { ...c, fqbn: boardMem[k].fqbn, fromMemory: true };
+        }
+      }
+      return c;
+    });
+    // Collapse multiple candidates at the same port into one, preferring fromMemory
+    const portMap = new Map();
+    for (const c of resolvedCandidates) {
+      if (typeof c.port !== "string") continue;
+      const existing = portMap.get(c.port);
+      if (!existing || (!existing.fromMemory && c.fromMemory)) portMap.set(c.port, c);
+    }
+    const deduped = Array.from(portMap.values());
+    const candidatesWithFqbn = deduped.filter((c) => typeof c.fqbn === "string" && typeof c.port === "string");
+    const portsOnly = deduped.filter((c) => !c.fqbn && typeof c.port === "string");
+    if (!currentTarget?.userChosen && candidatesWithFqbn.length === 1) {
       const only = candidatesWithFqbn[0];
-      currentTarget = { port: only.port, fqbn: only.fqbn };
+      const remembered = only.fromMemory;
+      currentTarget = { port: only.port, fqbn: only.fqbn, userChosen: !!remembered };
+      if (remembered) output.appendLine(`[BoardMemory] Restored ${only.fqbn} for ${vidPidKey(only.vid, only.pid) ?? only.port}`);
       await saveTarget(context, currentTarget);
-    } else if (!currentTarget && candidatesWithFqbn.length === 0 && portsOnly.length === 1) {
+      await syncTargetToServer(currentTarget);
+    } else if (!currentTarget?.userChosen && candidatesWithFqbn.length === 0 && portsOnly.length === 1) {
       const onlyPort = portsOnly[0];
       currentTarget = { port: onlyPort.port, fqbn: null };
       await saveTarget(context, currentTarget);
+      await syncTargetToServer(currentTarget);
     }
     // FQBN is never auto-overridden once chosen — only the user can change it via ||Choose as target||
     if (!currentTarget) {
@@ -2239,10 +2332,11 @@ async function activate(context) {
     lastCandidates = detection.candidates;
     if (currentTarget?.port && currentTarget?.fqbn) {
       // Board already chosen — let the user pick a new one instead of silently refreshing
-      const picked = await promptForTarget(context, lastCandidates);
+      const picked = await promptForTarget(context, lastCandidates, currentTarget);
       if (picked) {
-        currentTarget = picked;
-        setOk(picked);
+        currentTarget = { ...picked, userChosen: true };
+        await syncTargetToServer(currentTarget);
+        setOk(currentTarget);
         refreshToolbarState();
       }
       return;
@@ -2256,10 +2350,11 @@ async function activate(context) {
     setTimeout(() => {
       portsRefreshArmed = false;
     }, 6e3);
-    const picked = await promptForTarget(context, lastCandidates);
+    const picked = await promptForTarget(context, lastCandidates, currentTarget);
     if (picked) {
-      currentTarget = picked;
-      setOk(picked);
+      currentTarget = { ...picked, userChosen: true };
+      await syncTargetToServer(currentTarget);
+      setOk(currentTarget);
       refreshToolbarState();
     }
   };
@@ -2406,13 +2501,9 @@ async function activate(context) {
   await reconcileTarget();
   await delay(3000);
   await checkServerHealth(true);
-  const targetInterval = setInterval(() => {
-    void reconcileTarget();
-  }, 3e4);
   const healthInterval = setInterval(() => {
     void checkServerHealth(false);
   }, 2000);
-  context.subscriptions.push({ dispose: () => clearInterval(targetInterval) });
   context.subscriptions.push({ dispose: () => clearInterval(healthInterval) });
   context.subscriptions.push(
     vscode8.commands.registerCommand("arduinoMcp.serverStatus", async () => {

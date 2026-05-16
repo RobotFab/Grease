@@ -2,9 +2,9 @@
   "name": "arduino-grease",
   "displayName": "Arduino Grease",
   "publisher": "RobotFab",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "description": "Arduino tooling + MCP server for agentic debugging inside VS Code, Cursor, and Antigravity.",
-  "releaseNotes": "v1.0.6 — Smart ||R|| board picker, read-only example sketches, FQBN locked after user choice, removed dead managers panel, terminal install hint, auto-scroll output ON by default.",
+  "releaseNotes": "v1.0.7 — Board memory: clicking ||Choose as target|| now remembers the VID/PID → FQBN mapping so the board is recognized automatically next time it is plugged in.",
   "main": "dist/extension.js",
   "icon": "icon.png",
   "scripts": {
@@ -49,8 +49,13 @@
     "languages": [
       {
         "id": "arduino",
-        "extensions": [".ino"],
-        "aliases": ["Arduino", "arduino"],
+        "extensions": [
+          ".ino"
+        ],
+        "aliases": [
+          "Arduino",
+          "arduino"
+        ],
         "configuration": "./language-configuration.json"
       }
     ],
@@ -194,7 +199,8 @@
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@modelcontextprotocol/server": "^2.0.0-alpha.2",
     "express": "^5.2.1",
-    "serialport": "^13.0.0"
+    "serialport": "^13.0.0",
+    "usb": "^2.17.0"
   },
   "repository": {
     "type": "git",

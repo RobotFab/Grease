@@ -1,5 +1,6 @@
 import http from "node:http";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 
@@ -11,19 +12,72 @@ import { z } from "zod";
 
 import { detectBoards, compileSketch, uploadSketch, enableUnsafeInstall, installLibrary } from "./lib/arduinoCli.mjs";
 import { SerialManager } from "./lib/serialManager.mjs";
+import { usb } from "usb";
 
 const PORT = Number(process.env.MCP_PORT || process.env.PORT || "3333");
 const HOST = process.env.MCP_HOST || "127.0.0.1";
-const AUTH_KEY = process.env.MCP_AUTH_KEY || randomUUID();
 
-// Path to SKILL.md — lives alongside server.mjs so it travels with the extension.
-const SKILL_PATH = path.join(import.meta.dirname ?? path.dirname(new URL(import.meta.url).pathname), "SKILL.md");
+// ── Stable auth key (persists across restarts and version updates) ───────────
+const _authStore = path.join(os.homedir(), ".grease-mcp-auth");
+let AUTH_KEY;
+try { AUTH_KEY = JSON.parse(fs.readFileSync(_authStore, "utf8")).key || null; } catch (_e) {}
+if (!AUTH_KEY) { AUTH_KEY = process.env.MCP_AUTH_KEY || randomUUID(); }
+try {
+  fs.writeFileSync(_authStore, JSON.stringify({ key: AUTH_KEY, port: PORT, updatedAt: new Date().toISOString() }));
+} catch (_e) {}
+
+// ── Stable SKILL.md — user copy at ~/.grease/SKILL.md survives version updates ──
+const _greaseDir    = path.join(os.homedir(), ".grease");
+const _userSkill    = path.join(_greaseDir, "SKILL.md");
+const _bundledSkill = path.join(import.meta.dirname ?? path.dirname(new URL(import.meta.url).pathname), "SKILL.md");
+if (!fs.existsSync(_userSkill)) {
+  try { fs.mkdirSync(_greaseDir, { recursive: true }); fs.copyFileSync(_bundledSkill, _userSkill); } catch (_e) {}
+}
+const SKILL_PATH = fs.existsSync(_userSkill) ? _userSkill : _bundledSkill;
+
+// ── Multi-IDE MCP auto-registration ──────────────────────────────────────────
+const _ideConfigs = [
+  path.join(os.homedir(), ".claude", "settings.json"),
+  ...(os.platform() === "darwin"
+    ? [path.join(os.homedir(), "Library", "Application Support", "Claude", "claude_desktop_config.json")]
+    : []),
+  ...(os.platform() === "win32" && process.env.APPDATA
+    ? [path.join(process.env.APPDATA, "Claude", "claude_desktop_config.json")]
+    : []),
+  path.join(os.homedir(), ".cursor", "mcp.json"),
+  path.join(os.homedir(), ".codeium", "windsurf", "mcp_config.json"),
+];
+const _mcpEntry = { type: "http", url: `http://127.0.0.1:${PORT}/mcp`, headers: { "x-grease-auth": AUTH_KEY } };
+for (const cfgPath of _ideConfigs) {
+  if (!fs.existsSync(cfgPath)) continue;
+  try {
+    let cfg = {};
+    try { cfg = JSON.parse(fs.readFileSync(cfgPath, "utf8")); } catch (_e) {}
+    if (!cfg.mcpServers) cfg.mcpServers = {};
+    if (cfg.mcpServers["arduino-grease"]?.headers?.["x-grease-auth"] === AUTH_KEY) continue;
+    cfg.mcpServers["arduino-grease"] = _mcpEntry;
+    fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2));
+  } catch (_e) {}
+}
 
 const state = {
   target: /** @type {{ port: string|null, fqbn: string|null }} */ ({ port: null, fqbn: null }),
   sketchPath: process.cwd(),
   uploading: false,
+  portChangeVersion: 0,
 };
+
+let _usbDebounce = null;
+usb.on("attach", () => {
+  if (state.uploading) return;
+  clearTimeout(_usbDebounce);
+  _usbDebounce = setTimeout(() => { state.portChangeVersion++; }, 1500);
+});
+usb.on("detach", () => {
+  if (state.uploading) return;
+  clearTimeout(_usbDebounce);
+  state.portChangeVersion++;
+});
 
 const serial = new SerialManager();
 
@@ -284,6 +338,13 @@ async function main() {
   app.post("/serial/read", async (_req, res) => {
     const lines = serial.read({ clear: true });
     res.json({ ok: true, lines, serial: serial.status() });
+  });
+
+  app.post("/target", (req, res) => {
+    const { port, fqbn } = req.body ?? {};
+    state.target.port = port ?? null;
+    state.target.fqbn = fqbn ?? null;
+    res.json({ ok: true, target: state.target });
   });
 
   app.post("/mcp", async (req, res) => {
