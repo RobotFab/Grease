@@ -25,7 +25,10 @@ export function runProcess(command, args, options = {}) {
     });
 
     child.on("error", (err) => {
-      resolve({ success: false, exitCode: null, stdout, stderr: `${stderr}\n${String(err)}` });
+      const hint = err.code === "ENOENT"
+        ? `\n\nArduino CLI not found. Install it at https://arduino.github.io/arduino-cli/latest/installation/ then restart your IDE.\nOn macOS: brew install arduino-cli\nOn Windows: winget install ArduinoSA.ArduinoCLI\nOn Linux: curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | sh`
+        : "";
+      resolve({ success: false, exitCode: null, stdout, stderr: `${stderr}\n${String(err)}${hint}` });
     });
     child.on("close", (code) => {
       resolve({ success: code === 0, exitCode: code, stdout, stderr });

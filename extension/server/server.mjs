@@ -26,13 +26,25 @@ try {
   fs.writeFileSync(_authStore, JSON.stringify({ key: AUTH_KEY, port: PORT, updatedAt: new Date().toISOString() }));
 } catch (_e) {}
 
-// ── Stable SKILL.md — user copy at ~/.grease/SKILL.md survives version updates ──
+// ── SKILL.md — bundled copy is the canonical source; auto-deployed to ~/.grease/SKILL.md ──
 const _greaseDir    = path.join(os.homedir(), ".grease");
 const _userSkill    = path.join(_greaseDir, "SKILL.md");
 const _bundledSkill = path.join(import.meta.dirname ?? path.dirname(new URL(import.meta.url).pathname), "SKILL.md");
-if (!fs.existsSync(_userSkill)) {
-  try { fs.mkdirSync(_greaseDir, { recursive: true }); fs.copyFileSync(_bundledSkill, _userSkill); } catch (_e) {}
+function _getSkillVersion(filePath) {
+  try {
+    const firstLine = fs.readFileSync(filePath, "utf8").split("\n")[0];
+    const m = firstLine.match(/grease-skill-version:\s*(\d+)/);
+    return m ? Number(m[1]) : 0;
+  } catch { return 0; }
 }
+try {
+  fs.mkdirSync(_greaseDir, { recursive: true });
+  const bundledVersion = _getSkillVersion(_bundledSkill);
+  const userVersion    = _getSkillVersion(_userSkill);
+  if (!fs.existsSync(_userSkill) || bundledVersion > userVersion) {
+    fs.copyFileSync(_bundledSkill, _userSkill);
+  }
+} catch (_e) {}
 const SKILL_PATH = fs.existsSync(_userSkill) ? _userSkill : _bundledSkill;
 
 // ── Multi-IDE MCP auto-registration ──────────────────────────────────────────
@@ -115,6 +127,7 @@ async function main() {
     {
       capabilities: {
         tools: {},
+        prompts: {},
         tasks: { requests: { tools: { call: {} } } },
       },
     }
@@ -131,7 +144,77 @@ async function main() {
         "start of every session before writing or uploading any code.",
       inputSchema: z.object({}).strict(),
     },
-    async () => asTextResult({ skill: readSkillMd(), path: SKILL_PATH })
+    async () => {
+      const { port, fqbn } = state.target;
+      const bothSet    = port !== null && fqbn !== null;
+      const neitherSet = port === null && fqbn === null;
+      let targetBlock;
+      if (bothSet) {
+        targetBlock =
+          "\n\n---\n\n## Current Hardware Target\n\n" +
+          `- **Port:** \`${port}\`\n` +
+          `- **FQBN:** \`${fqbn}\`\n\n` +
+          "> Target is already set. You do not need to call `detectBoards` or `getState` " +
+          "before compiling or uploading — proceed directly to editing the sketch.\n";
+      } else if (neitherSet) {
+        targetBlock =
+          "\n\n---\n\n## Current Hardware Target\n\n" +
+          "> No board is currently selected. Call `detectBoards` to find connected hardware, " +
+          "then call `setTarget` with the correct port and fqbn before compiling or uploading.\n";
+      } else {
+        targetBlock =
+          "\n\n---\n\n## Current Hardware Target\n\n" +
+          `- **Port:** \`${port ?? "(not set)"}\`\n` +
+          `- **FQBN:** \`${fqbn ?? "(not set)"}\`\n\n` +
+          "> Target is partially configured. Call `detectBoards` then `setTarget` to supply " +
+          "the missing value before compiling or uploading.\n";
+      }
+      return asTextResult({ skill: readSkillMd() + targetBlock, path: SKILL_PATH });
+    }
+  );
+
+  // ── Session-init prompt ─────────────────────────────────────────────────────
+  server.registerPrompt(
+    "grease-init",
+    {
+      title: "Arduino Grease: Initialize Session",
+      description:
+        "Inject at the start of every Arduino Grease session. Instructs the AI to " +
+        "read SKILL.md, server.mjs, and the current board state before doing any work.",
+    },
+    () => {
+      const authFile = _authStore;
+      const skillPath = SKILL_PATH;
+      const serverSrcPath = _bundledSkill.replace("SKILL.md", "server.mjs");
+      return {
+        messages: [
+          {
+            role: "user",
+            content: {
+              type: "text",
+              text: [
+                "Arduino Grease is installed and active. Before doing any work, perform these three reads in order:",
+                "",
+                `1. **Read SKILL.md** — located at: \`${skillPath}\``,
+                "   This file defines the robot skill, constraints, and operating rules for this project.",
+                "",
+                `2. **Read server.mjs** — located at: \`${serverSrcPath}\``,
+                "   This is the MCP server source. It shows available tools, REST endpoints, and auth setup.",
+                "",
+                `3. **Fetch /state** — read the auth key and port from \`${authFile}\`, then:`,
+                "   ```",
+                "   GET http://127.0.0.1:<port>/state",
+                "   Header: x-grease-auth: <key>",
+                "   ```",
+                "   This returns the current board target (port + fqbn), sketch path, and serial status.",
+                "",
+                "Do not write, compile, or upload any code until all three reads are complete.",
+              ].join("\n"),
+            },
+          },
+        ],
+      };
+    }
   );
 
   // ── Board tools ─────────────────────────────────────────────────────────────
@@ -312,6 +395,10 @@ async function main() {
   app.get("/health", (_req, res) => res.json({ ok: true, name: "arduino-mcp", port: PORT }));
   app.get("/state", (_req, res) => res.json({ ...state, serial: serial.status() }));
   app.get("/skill", (_req, res) => res.type("text/plain").send(readSkillMd()));
+  app.get("/detect", async (_req, res) => {
+    const result = await detectBoards();
+    res.json(result);
+  });
 
   app.post("/serial/open", async (req, res) => {
     try {
@@ -319,7 +406,12 @@ async function main() {
       await serial.open({ path, baudRate });
       res.json({ ok: true, serial: serial.status() });
     } catch (e) {
-      res.status(400).json({ ok: false, error: e?.message ?? String(e) });
+      const msg = e?.message ?? String(e);
+      const isPermDenied = msg.includes("Permission denied") || msg.includes("EACCES") || msg.includes("EPERM");
+      const hint = isPermDenied && process.platform === "linux"
+        ? " On Linux, add yourself to the dialout group: sudo usermod -a -G dialout $USER — then log out and back in."
+        : "";
+      res.status(400).json({ ok: false, error: msg + hint });
     }
   });
   app.post("/serial/close", async (_req, res) => {
@@ -363,16 +455,7 @@ async function main() {
     // eslint-disable-next-line no-console
     console.log(`Arduino MCP auth key: ${AUTH_KEY}`);
 
-    // Run library installations in the background so as not to block server startup
-    void (async () => {
-      try {
-        await enableUnsafeInstall();
-        await installLibrary("Romi32U4");
-        await installLibrary("wpi-32u4-library-with-bluemotor");
-      } catch (e) {
-        console.error("Background task failed:", e);
-      }
-    })();
+    void enableUnsafeInstall().catch(() => {});
   });
 
   const shutdown = async () => {

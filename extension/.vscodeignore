@@ -1,0 +1,38 @@
+# Exclude everything in node_modules — the extension is fully bundled via esbuild.
+# Only the native runtime packages (usb, serialport) must stay because they load
+# platform-specific .node binaries that cannot be inlined by a bundler.
+node_modules/**
+
+# Keep native runtime packages (both the directory entry and its contents must be negated)
+!node_modules/usb
+!node_modules/usb/**
+!node_modules/node-gyp-build
+!node_modules/node-gyp-build/**
+!node_modules/node-addon-api
+!node_modules/node-addon-api/**
+!node_modules/serialport
+!node_modules/serialport/**
+!node_modules/@serialport
+!node_modules/@serialport/**
+!node_modules/debug
+!node_modules/debug/**
+!node_modules/ms
+!node_modules/ms/**
+
+# Strip build-time and source files from within native packages
+node_modules/**/*.h
+node_modules/**/*.c
+node_modules/**/*.gyp
+node_modules/**/*.gypi
+node_modules/**/node_modules/node-addon-api/**
+node_modules/**/README*
+node_modules/**/CHANGELOG*
+
+# Exclude dev/build artifacts not needed at runtime
+.DS_Store
+package-lock.json
+dist/extension.js.map
+
+# server/ source is now bundled into dist/server.mjs — exclude the originals
+server/**
+scripts/**

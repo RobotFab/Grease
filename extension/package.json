@@ -2,9 +2,9 @@
   "name": "arduino-grease",
   "displayName": "Arduino Grease",
   "publisher": "RobotFab",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "description": "Arduino tooling + MCP server for agentic debugging inside VS Code, Cursor, and Antigravity.",
-  "releaseNotes": "v1.0.7 — Board memory: clicking ||Choose as target|| now remembers the VID/PID → FQBN mapping so the board is recognized automatically next time it is plugged in.",
+  "releaseNotes": "v1.0.8 — Seamless first-time setup: arduino-cli not-found warning with install guide; Linux serial dialout group hint; REST /detect endpoint for board discovery; cross-OS REST API documented in SKILL.md; removed forced Romi library auto-install.",
   "main": "dist/extension.js",
   "icon": "icon.png",
   "scripts": {
@@ -27,23 +27,7 @@
     "Other"
   ],
   "activationEvents": [
-    "onStartupFinished",
-    "onLanguage:arduino",
-    "onView:arduinoMcp.toolbar",
-    "onCommand:arduinoMcp.serverStatus",
-    "onCommand:arduinoMcp.refreshServer",
-    "onCommand:arduinoMcp.refreshPortsBoards",
-    "onCommand:arduinoMcp.startSketch",
-    "onCommand:arduinoMcp.installCore",
-    "onCommand:arduinoMcp.verify",
-    "onCommand:arduinoMcp.upload",
-    "onCommand:arduinoMcp.selectTarget",
-    "onCommand:arduinoMcp.openSerialMonitor",
-    "onCommand:arduinoMcp.serialCommand",
-    "onCommand:arduinoMcp.openSerialPlotter",
-    "onCommand:arduinoMcp.openExamples",
-    "onCommand:arduinoMcp.openBoardTemplate",
-    "onCommand:arduinoMcp.cycleAccentColor"
+    "onStartupFinished"
   ],
   "contributes": {
     "languages": [

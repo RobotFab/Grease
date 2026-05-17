@@ -24,7 +24,10 @@ export async function detectBoards() {
   const stderr = `${result.stderr ?? ""}`;
 
   if (!result.success) {
-    return { success: false, boardsJson: null, raw, stderr };
+    const hint = stderr.includes("arduino-cli not found") || stderr.includes("ENOENT")
+      ? "" // hint already injected by runProcess
+      : (result.exitCode === null && !raw ? "\n\nHint: make sure arduino-cli is installed and on your PATH." : "");
+    return { success: false, boardsJson: null, raw, stderr: stderr + hint };
   }
 
   const match = raw.match(/\{[\s\S]*\}\s*$/) || raw.match(/\[[\s\S]*\]\s*$/);

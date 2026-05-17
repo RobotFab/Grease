@@ -66,7 +66,7 @@ async function pickPort(preferred = 3333) {
 async function startBundledServer(context, output, preferredPort = 3333) {
   const port = await pickPort(preferredPort);
   const nodePath = process.env.ARDUINO_MCP_NODE_PATH || "node";
-  const serverPath = context.asAbsolutePath(path.join("server", "server.mjs"));
+  const serverPath = context.asAbsolutePath(path.join("dist", "server.mjs"));
   const { randomBytes } = await import("node:crypto");
   let authKey;
   try {
@@ -442,7 +442,24 @@ var SerialMonitorPanel = class {
     this.output.appendLine(`Serial: unknown command "${text}".`);
   }
   async connect(port, baudRate) {
-    await serialOpen({ path: port, baudRate });
+    try {
+      await serialOpen({ path: port, baudRate });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      const isPermDenied = msg.includes("Permission denied") || msg.includes("EACCES") || msg.includes("EPERM");
+      if (isPermDenied && os.platform() === "linux") {
+        vscode8.window.showErrorMessage(
+          `Serial: Permission denied on ${port}. On Linux, run: sudo usermod -a -G dialout $USER — then log out and back in.`,
+          "Copy Command"
+        ).then((action) => {
+          if (action === "Copy Command") vscode8.env.clipboard.writeText(`sudo usermod -a -G dialout $USER`);
+        });
+      } else {
+        vscode8.window.showErrorMessage(`Serial: Failed to open ${port}: ${msg}`);
+      }
+      this.output.appendLine(`Serial open failed: ${msg}`);
+      return;
+    }
     this.connectedPort = port;
     this.baudRate = baudRate;
     this.isConnected = true;
@@ -522,7 +539,24 @@ var SerialPlotterPanel = class {
     this.pollTimer = null;
   }
   async connect(port, baudRate) {
-    await serialOpen({ path: port, baudRate });
+    try {
+      await serialOpen({ path: port, baudRate });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      const isPermDenied = msg.includes("Permission denied") || msg.includes("EACCES") || msg.includes("EPERM");
+      if (isPermDenied && os.platform() === "linux") {
+        vscode8.window.showErrorMessage(
+          `Serial: Permission denied on ${port}. On Linux, run: sudo usermod -a -G dialout $USER — then log out and back in.`,
+          "Copy Command"
+        ).then((action) => {
+          if (action === "Copy Command") vscode8.env.clipboard.writeText(`sudo usermod -a -G dialout $USER`);
+        });
+      } else {
+        vscode8.window.showErrorMessage(`Serial: Failed to open ${port}: ${msg}`);
+      }
+      this.output.appendLine(`Serial open failed (plotter): ${msg}`);
+      return;
+    }
     this.output.appendLine(`Serial connected (plotter): ${port} @ ${baudRate}`);
     this.isConnected = true;
     this.postStatus();
@@ -2062,10 +2096,25 @@ async function activate(context) {
     output.appendLine("Arduino Grease server stopped.");
   };
   await startServer();
-  try {
-    await runArduinoCli(["config", "set", "library.enable_unsafe_install", "true"]);
-  } catch (e) {
-    output.appendLine("Failed to enable unsafe install: " + String(e));
+  // ── arduino-cli presence check ────────────────────────────────────────────
+  {
+    const check = await runArduinoCli(["version"]);
+    if (!check.success && (check.stderr?.includes("ENOENT") || check.exitCode === null)) {
+      const installGuide = os.platform() === "win32"
+        ? "Run: winget install ArduinoSA.ArduinoCLI"
+        : os.platform() === "darwin"
+          ? "Run: brew install arduino-cli"
+          : "Run: curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | sh";
+      const action = await vscode8.window.showWarningMessage(
+        `Arduino Grease: arduino-cli not found on PATH. ${installGuide} — then restart your IDE.`,
+        "Open Install Guide"
+      );
+      if (action === "Open Install Guide") {
+        vscode8.env.openExternal(vscode8.Uri.parse("https://arduino.github.io/arduino-cli/latest/installation/"));
+      }
+    } else {
+      await runArduinoCli(["config", "set", "library.enable_unsafe_install", "true"]).catch(() => {});
+    }
   }
   context.subscriptions.push({
     dispose: () => {
