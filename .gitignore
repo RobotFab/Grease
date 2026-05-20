@@ -1,8 +1,10 @@
-# macOS
-.DS_Store
+# Ignore everything at the repo root
+/*
 
-# Arduino sketches
-*.ino
+# Keep only these at the root
+!/.gitignore
+!/extension/
+!/readme.md
 
-# Node dependencies
+# Inside extension/, still ignore dependencies
 extension/node_modules/

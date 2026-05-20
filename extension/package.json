@@ -2,9 +2,9 @@
   "name": "arduino-grease",
   "displayName": "Arduino Grease",
   "publisher": "RobotFab",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "description": "Arduino tooling + MCP server for agentic debugging inside VS Code, Cursor, and Antigravity.",
-  "releaseNotes": "v1.0.8 — Seamless first-time setup: arduino-cli not-found warning with install guide; Linux serial dialout group hint; REST /detect endpoint for board discovery; cross-OS REST API documented in SKILL.md; removed forced Romi library auto-install.",
+  "releaseNotes": "v1.0.9 — MCP auto-sync fix: existing IDE config entries are now refreshed whenever the server URL/port changes, not only when the auth key changes (previously a port change on restart left ~/.claude/settings.json, ~/.cursor/mcp.json, and the Windsurf config pointing at a dead port). Auth-key store relocated from ~/.grease-mcp-auth to ~/.grease/mcp-auth.json, with one-time migration from the legacy path.",
   "main": "dist/extension.js",
   "icon": "icon.png",
   "scripts": {

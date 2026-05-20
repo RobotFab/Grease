@@ -17,17 +17,29 @@ import { usb } from "usb";
 const PORT = Number(process.env.MCP_PORT || process.env.PORT || "3333");
 const HOST = process.env.MCP_HOST || "127.0.0.1";
 
+// ── Shared Grease state directory (vendor-neutral, lives outside the extension
+//    folder so it survives version upgrades) ─────────────────────────────────
+const _greaseDir = path.join(os.homedir(), ".grease");
+try { fs.mkdirSync(_greaseDir, { recursive: true }); } catch (_e) {}
+
 // ── Stable auth key (persists across restarts and version updates) ───────────
-const _authStore = path.join(os.homedir(), ".grease-mcp-auth");
+const _authStore       = path.join(_greaseDir, "mcp-auth.json");
+const _legacyAuthStore = path.join(os.homedir(), ".grease-mcp-auth");
 let AUTH_KEY;
 try { AUTH_KEY = JSON.parse(fs.readFileSync(_authStore, "utf8")).key || null; } catch (_e) {}
+if (!AUTH_KEY) {
+  // One-time migration from the pre-v1.0.9 location at ~/.grease-mcp-auth
+  try { AUTH_KEY = JSON.parse(fs.readFileSync(_legacyAuthStore, "utf8")).key || null; } catch (_e) {}
+}
 if (!AUTH_KEY) { AUTH_KEY = process.env.MCP_AUTH_KEY || randomUUID(); }
 try {
   fs.writeFileSync(_authStore, JSON.stringify({ key: AUTH_KEY, port: PORT, updatedAt: new Date().toISOString() }));
+  if (fs.existsSync(_legacyAuthStore)) {
+    try { fs.unlinkSync(_legacyAuthStore); } catch (_e) {}
+  }
 } catch (_e) {}
 
 // ── SKILL.md — bundled copy is the canonical source; auto-deployed to ~/.grease/SKILL.md ──
-const _greaseDir    = path.join(os.homedir(), ".grease");
 const _userSkill    = path.join(_greaseDir, "SKILL.md");
 const _bundledSkill = path.join(import.meta.dirname ?? path.dirname(new URL(import.meta.url).pathname), "SKILL.md");
 function _getSkillVersion(filePath) {
@@ -38,7 +50,6 @@ function _getSkillVersion(filePath) {
   } catch { return 0; }
 }
 try {
-  fs.mkdirSync(_greaseDir, { recursive: true });
   const bundledVersion = _getSkillVersion(_bundledSkill);
   const userVersion    = _getSkillVersion(_userSkill);
   if (!fs.existsSync(_userSkill) || bundledVersion > userVersion) {
@@ -66,7 +77,14 @@ for (const cfgPath of _ideConfigs) {
     let cfg = {};
     try { cfg = JSON.parse(fs.readFileSync(cfgPath, "utf8")); } catch (_e) {}
     if (!cfg.mcpServers) cfg.mcpServers = {};
-    if (cfg.mcpServers["arduino-grease"]?.headers?.["x-grease-auth"] === AUTH_KEY) continue;
+    // Skip writing only when the existing entry matches BOTH the auth key and
+    // the URL. Checking only the key (pre-v1.0.9) left the URL stale whenever
+    // the server bound to a different port across restarts.
+    const _existing = cfg.mcpServers["arduino-grease"];
+    if (
+      _existing?.headers?.["x-grease-auth"] === AUTH_KEY &&
+      _existing?.url === _mcpEntry.url
+    ) continue;
     cfg.mcpServers["arduino-grease"] = _mcpEntry;
     fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2));
   } catch (_e) {}
