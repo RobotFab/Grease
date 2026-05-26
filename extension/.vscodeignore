@@ -36,3 +36,8 @@ dist/extension.js.map
 # server/ source is now bundled into dist/server.mjs — exclude the originals
 server/**
 scripts/**
+
+# src/ source is now bundled into dist/extension.js — exclude the originals
+src/**
+tsconfig.json
+out/**

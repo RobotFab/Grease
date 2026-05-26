@@ -3,6 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
+import { exec } from "node:child_process";
 
 import { createMcpExpressApp } from "@modelcontextprotocol/express";
 import { NodeStreamableHTTPServerTransport } from "@modelcontextprotocol/node";
@@ -94,8 +95,31 @@ const state = {
   target: /** @type {{ port: string|null, fqbn: string|null }} */ ({ port: null, fqbn: null }),
   sketchPath: process.cwd(),
   uploading: false,
+  compiling: false,
+  agentActive: false,
   portChangeVersion: 0,
 };
+
+// Detect arduino-cli compile/upload processes spawned by any agent or shell.
+// Uses ps -eo args (macOS/Linux) or Get-CimInstance (Windows) — both output
+// full command lines, unlike pgrep which only returns PIDs on macOS.
+function checkCliProcesses() {
+  return new Promise(resolve => {
+    const cmd = process.platform === "win32"
+      ? 'powershell -NoProfile -Command "Get-CimInstance Win32_Process | Select-Object -ExpandProperty CommandLine"'
+      : "ps -eo args";
+    exec(cmd, { timeout: 3000 }, (err, stdout) => {
+      if (err) return resolve({ compile: false, upload: false });
+      resolve({
+        compile: /arduino-cli\s+compile/.test(stdout),
+        upload:  /arduino-cli\s+upload/.test(stdout),
+      });
+    });
+  });
+}
+
+let _cliCompiling = false;
+let _cliUploading = false;
 
 let _usbDebounce = null;
 usb.on("attach", () => {
@@ -141,7 +165,16 @@ async function main() {
 
 
   const server = new McpServer(
-    { name: "arduino-mcp", version: "1.0" },
+    {
+      name: "arduino-mcp",
+      version: "1.0",
+      instructions:
+        "Arduino Grease MCP server is active. Rules:\n" +
+        "1. Call `readSkill` FIRST — every session, before any work.\n" +
+        "2. For board or port questions → call `getState` immediately (returns fqbn + port).\n" +
+        "3. Never guess board/port values. Never hardcode them.\n" +
+        "4. Auth key and port: ~/.grease/mcp-auth.json",
+    },
     {
       capabilities: {
         tools: {},
@@ -201,9 +234,7 @@ async function main() {
         "read SKILL.md, server.mjs, and the current board state before doing any work.",
     },
     () => {
-      const authFile = _authStore;
       const skillPath = SKILL_PATH;
-      const serverSrcPath = _bundledSkill.replace("SKILL.md", "server.mjs");
       return {
         messages: [
           {
@@ -211,22 +242,12 @@ async function main() {
             content: {
               type: "text",
               text: [
-                "Arduino Grease is installed and active. Before doing any work, perform these three reads in order:",
+                "Arduino Grease is active. Before doing any work:",
                 "",
-                `1. **Read SKILL.md** — located at: \`${skillPath}\``,
-                "   This file defines the robot skill, constraints, and operating rules for this project.",
+                `1. **Call \`readSkill\`** — reads \`${skillPath}\`. Contains all endpoints, rules, and preferences.`,
+                "2. **Call \`getState\`** — returns current board (fqbn) and port. Never hardcode these.",
                 "",
-                `2. **Read server.mjs** — located at: \`${serverSrcPath}\``,
-                "   This is the MCP server source. It shows available tools, REST endpoints, and auth setup.",
-                "",
-                `3. **Fetch /state** — read the auth key and port from \`${authFile}\`, then:`,
-                "   ```",
-                "   GET http://127.0.0.1:<port>/state",
-                "   Header: x-grease-auth: <key>",
-                "   ```",
-                "   This returns the current board target (port + fqbn), sketch path, and serial status.",
-                "",
-                "Do not write, compile, or upload any code until all three reads are complete.",
+                "Do not write, compile, or upload any code until both reads are complete.",
               ].join("\n"),
             },
           },
@@ -267,7 +288,11 @@ async function main() {
   server.registerTool(
     "getState",
     {
-      title: "Get current server state",
+      title: "Get current board + port",
+      description:
+        "Returns the current target (fqbn + port), sketch path, and serial status. " +
+        "Call this whenever the user asks what board is connected, what port to use, " +
+        "or before compile/upload. Never guess these values — always call getState first.",
       inputSchema: z.object({}).strict(),
     },
     async () => {
@@ -292,8 +317,14 @@ async function main() {
         return asTextResult({ success: false, error: `Sketch path not found: ${effectiveSketchPath}` });
       }
       state.sketchPath = effectiveSketchPath;
-      const result = await compileSketch({ fqbn: effectiveFqbn, sketchPath: effectiveSketchPath });
-      return asTextResult({ ...result, sketchPath: effectiveSketchPath });
+      state.compiling = true;
+      state._mcpCompiling = true;
+      try {
+        const result = await compileSketch({ fqbn: effectiveFqbn, sketchPath: effectiveSketchPath });
+        return asTextResult({ ...result, sketchPath: effectiveSketchPath });
+      } finally {
+        setTimeout(() => { state.compiling = false; state._mcpCompiling = false; }, 2500);
+      }
     }
   );
 
@@ -319,11 +350,12 @@ async function main() {
       }
       state.sketchPath = effectiveSketchPath;
       state.uploading = true;
+      state._mcpUploading = true;
       try {
         const result = await uploadSketch({ fqbn: effectiveFqbn, port: effectivePort, sketchPath: effectiveSketchPath });
         return asTextResult({ ...result, sketchPath: effectiveSketchPath });
       } finally {
-        state.uploading = false;
+        setTimeout(() => { state.uploading = false; state._mcpUploading = false; }, 2500);
       }
     }
   );
@@ -409,6 +441,16 @@ async function main() {
     next();
   });
 
+  // ── Agent Activity Indicator — set agentActive on hardware REST requests ────
+  const HARDWARE_REST_PATHS = new Set(["/detect", "/target", "/serial/open", "/serial/close", "/serial/write", "/serial/read"]);
+  app.use((req, res, next) => {
+    if (HARDWARE_REST_PATHS.has(req.path)) {
+      state.agentActive = true;
+      res.on("finish", () => { state.agentActive = false; });
+    }
+    next();
+  });
+
   // ── REST endpoints ──────────────────────────────────────────────────────────
   app.get("/health", (_req, res) => res.json({ ok: true, name: "arduino-mcp", port: PORT }));
   app.get("/state", (_req, res) => res.json({ ...state, serial: serial.status() }));
@@ -457,6 +499,20 @@ async function main() {
     res.json({ ok: true, target: state.target });
   });
 
+  app.post("/thrust", (_req, res) => {
+    state.compiling = true;
+    clearTimeout(state._thrustTimer);
+    state._thrustTimer = setTimeout(() => { state.compiling = false; }, 10000);
+    res.json({ ok: true, state: "thrust" });
+  });
+
+  app.post("/idle", (_req, res) => {
+    clearTimeout(state._thrustTimer);
+    state.compiling = false;
+    state.uploading = false;
+    res.json({ ok: true, state: "idle" });
+  });
+
   app.post("/mcp", async (req, res) => {
     const requestBody = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
     try {
@@ -467,6 +523,7 @@ async function main() {
   });
 
   const httpServer = http.createServer(app);
+  let cliWatcher;
   httpServer.listen(PORT, HOST, () => {
     // eslint-disable-next-line no-console
     console.log(`Arduino MCP server listening on http://${HOST}:${PORT} (MCP at /mcp)`);
@@ -474,9 +531,31 @@ async function main() {
     console.log(`Arduino MCP auth key: ${AUTH_KEY}`);
 
     void enableUnsafeInstall().catch(() => {});
+
+    // Watch for arduino-cli processes spawned by any agent or shell (AI-agent-agnostic).
+    cliWatcher = setInterval(async () => {
+      const { compile, upload } = await checkCliProcesses();
+
+      if (compile && !_cliCompiling) {
+        _cliCompiling = true;
+        if (!state._mcpCompiling) state.compiling = true;
+      } else if (!compile && _cliCompiling) {
+        _cliCompiling = false;
+        if (!state._mcpCompiling) state.compiling = false;
+      }
+
+      if (upload && !_cliUploading) {
+        _cliUploading = true;
+        if (!state._mcpUploading) state.uploading = true;
+      } else if (!upload && _cliUploading) {
+        _cliUploading = false;
+        if (!state._mcpUploading) state.uploading = false;
+      }
+    }, 500);
   });
 
   const shutdown = async () => {
+    clearInterval(cliWatcher);
     try { await server.close(); } catch { /* ignore */ }
     try { await serial.close(); } catch { /* ignore */ }
     httpServer.close(() => process.exit(0));

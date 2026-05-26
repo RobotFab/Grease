@@ -1,4 +1,4 @@
-<!-- grease-skill-version: 3 -->
+<!-- grease-skill-version: 5 -->
 # Arduino Grease — Robot Skill
 
 > **IMPORTANT — Read this first.**
@@ -8,12 +8,27 @@
 
 ---
 
+## Quick Reference: User Question → What to Call
+
+| User asks… | Tool / endpoint |
+|---|---|
+| What board is connected? / What port? | `getState` tool **or** `GET /state` |
+| Is a board detected / plugged in? | `detectBoards` tool **or** `GET /detect` |
+| Compile this sketch | `compileSketch` tool |
+| Upload to board | `uploadSketch` tool |
+| Read serial output | `serialOpen` → `serialRead` → `serialClose` |
+| What are the REST endpoints? | `GET /skill` or call `readSkill` |
+
+**Never guess board or port values.** Always call `getState` first — it returns `fqbn` and `port` directly.
+
+---
+
 ## Connection
 
-- **MCP endpoint:** read port from `~/.grease-mcp-auth` → `port` field (default 3333, may differ)
-- **Auth key:** `~/.grease-mcp-auth` → `key` field; auto-synced into IDE MCP configs on each server start
+- **MCP endpoint:** read port from `~/.grease/mcp-auth.json` → `port` field (default 3333, may differ)
+- **Auth key:** `~/.grease/mcp-auth.json` → `key` field; auto-synced into IDE MCP configs on each server start
 - **Health check (no auth):** `GET http://127.0.0.1:<port>/health`
-- **First action every session:** select the **"Arduino Grease: Initialize Session"** MCP prompt from your IDE's prompt picker (any MCP-compatible IDE), or call the `readSkill` tool directly — both provide SKILL.md, server.mjs, and current board state before any work begins.
+- **First action every session:** select the **"Arduino Grease: Initialize Session"** MCP prompt from your IDE's prompt picker (any MCP-compatible IDE), or call the `readSkill` tool directly — both provide SKILL.md and current board state before any work begins.
 - **SKILL.md:** auto-synced to `~/.grease/SKILL.md` on each server start; add project-specific content using the XML tags in the Customisation section below
 - **IDE configs auto-updated on server start:** Claude Code, Claude Desktop, Cursor, Windsurf
 
@@ -21,11 +36,11 @@
 
 ```bash
 # macOS / Linux
-cat ~/.grease-mcp-auth
+cat ~/.grease/mcp-auth.json
 # → {"key":"<AUTH_KEY>","port":<PORT>,"updatedAt":"..."}
 
 # Windows (PowerShell)
-Get-Content "$env:USERPROFILE\.grease-mcp-auth" | ConvertFrom-Json
+Get-Content "$env:USERPROFILE\.grease\mcp-auth.json" | ConvertFrom-Json
 ```
 
 ---
@@ -49,8 +64,8 @@ All endpoints except `/health` require the header `x-grease-auth: <AUTH_KEY>`.
 ### Typical agent REST workflow (no MCP negotiation needed)
 
 ```bash
-AUTH="<key from ~/.grease-mcp-auth>"
-PORT=$(cat ~/.grease-mcp-auth | python3 -c "import sys,json;print(json.load(sys.stdin)['port'])")
+AUTH="<key from ~/.grease/mcp-auth.json>"
+PORT=$(cat ~/.grease/mcp-auth.json | python3 -c "import sys,json;print(json.load(sys.stdin)['port'])")
 BASE="http://127.0.0.1:$PORT"
 
 # 1. Check current target
@@ -79,7 +94,7 @@ curl -s -X POST $BASE/serial/close -H "x-grease-auth: $AUTH"
 ### Windows (PowerShell) equivalent
 
 ```powershell
-$auth = (Get-Content "$env:USERPROFILE\.grease-mcp-auth" | ConvertFrom-Json)
+$auth = (Get-Content "$env:USERPROFILE\.grease\mcp-auth.json" | ConvertFrom-Json)
 $BASE = "http://127.0.0.1:$($auth.port)"
 $H = @{ "x-grease-auth" = $auth.key; "Content-Type" = "application/json" }
 
@@ -160,7 +175,8 @@ or restart your IDE so the updated PATH is inherited.
 ## Code Style Preferences
 
 - Use `millis()`-based non-blocking patterns — never `delay()` in loops.
-- Prefer `Serial.println()` with labelled output (e.g. `Serial.println("angle: " + String(val))`).
+- Default Serial baud rate is **9600** unless the user explicitly requests otherwise.
+- For labelled Serial output, always separate the label string from the value: use `Serial.print("label: ")` followed by `Serial.println(val)`. Never concatenate them with `String()` — concatenation can confuse the Serial Plotter's series parser.
 - Keep sketches modular: setup, loop, and named helper functions.
 - Comment all non-obvious hardware interactions (pin assignments, timing rationale).
 - Target C++11 idioms compatible with Arduino AVR/SAMD toolchains.
@@ -176,76 +192,16 @@ or restart your IDE so the updated PATH is inherited.
 3. [if port/fqbn missing] setTarget (or POST /target) ← configure the target
 4. [edit sketch code]
 5. compileSketch       ← verify it builds
-6. uploadSketch        ← flash to board by pressing the ||Upload|| button (see Upload Animation below)
-7. serialOpen  (or POST /serial/open)  ← open serial at correct baud
+6. uploadSketch  (or POST /uploadSketch)  ← flash to board; thrust animation fires automatically
+7. serialOpen  (or POST /serial/open)  ← open serial at correct baud; thrust animation fires while port is open
 8. serialRead  (or POST /serial/read)  ← observe behaviour
 9. [iterate as needed]
-10. serialClose (or POST /serial/close) ← tidy up
+10. serialClose (or POST /serial/close) ← tidy up; animation returns to idle
 ```
 
----
-
-## Upload Animation — Simulating the ||Upload|| Button
-
-The `||Upload||` button triggers the VS Code command `arduinoMcp.upload`, which compiles, flashes
-the board, and plays the rain/thrust animation. Any VS Code-based IDE supports this
-(VS Code, Cursor, Windsurf, etc.). To simulate it from the AI agent, follow these
-two steps in order:
-
-**Step 1 — Open the sketch as the active editor:**
-
-Use the IDE's CLI to open the `.ino` file. Replace `<ide>` with the appropriate command
-(`code`, `cursor`, `windsurf`, etc.):
-```bash
-<ide> /path/to/sketch/sketch.ino
-```
-This is required because `getSketchFolder()` resolves the sketch from the active editor.
-If no `.ino` file is open, the upload command silently fails.
-
-**Step 2 — Trigger `arduinoMcp.upload` via the command palette:**
-
-> **Key rule for all platforms:** The command palette shortcut (`Ctrl/Cmd+Shift+P`) already
-> inserts the `>` prefix — do **not** add another `>` before `arduinoMcp.upload`.
-
-**macOS:**
-```bash
-osascript <<'EOF'
-tell application process "YOUR_IDE_PROCESS_NAME" of application "System Events" to set frontmost to true
-delay 0.5
-tell application "System Events"
-  keystroke "p" using {command down, shift down}
-  delay 0.6
-  keystroke "arduinoMcp.upload"
-  delay 0.5
-  keystroke return
-end tell
-EOF
-```
-*Required permission:* System Settings → Privacy & Security → Automation → [your IDE] (allow Terminal/agent).
-
-**Windows (PowerShell):**
-```powershell
-Add-Type -AssemblyName System.Windows.Forms
-Start-Sleep -Milliseconds 500
-[System.Windows.Forms.SendKeys]::SendWait("^+p")
-Start-Sleep -Milliseconds 600
-[System.Windows.Forms.SendKeys]::SendWait("arduinoMcp.upload")
-Start-Sleep -Milliseconds 500
-[System.Windows.Forms.SendKeys]::SendWait("{ENTER}")
-```
-*Note:* Focus the IDE window before running this script.
-
-**Linux (xdotool):**
-```bash
-xdotool search --name "YOUR_IDE_WINDOW_TITLE" windowactivate --sync
-sleep 0.5
-xdotool key ctrl+shift+p
-sleep 0.6
-xdotool type "arduinoMcp.upload"
-sleep 0.5
-xdotool key Return
-```
-*Install with:* `sudo apt install xdotool` (Debian/Ubuntu) or equivalent.
+> **Upload & serial animation:** The `state=thrust` rain animation activates automatically
+> whenever `POST /uploadSketch` is running or the serial port is open. No special steps needed —
+> use the REST API or MCP tools as normal and the animation follows.
 
 ---
 

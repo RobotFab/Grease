@@ -8,3 +8,6 @@
 
 # Inside extension/, still ignore dependencies
 extension/node_modules/
+
+# Old tsc output — superseded by esbuild dist/ bundle
+extension/out/

@@ -1,13 +1,12 @@
 ## Arduino Grease
 
-An extension to program robots to do what you say and to enable robots to read their own UART feedback to debug themselves. Creates a physical extension of an AI agent.
+Arduino Grease is a software to build microcontrollers and robots capable of debugging themselves. From LED blinking to Reinforcement Learning experiments, this is an all-in-one solution for your problems.
 
 Arduino tooling + a bundled local MCP server for **agentic hardware debugging** inside VS Code, Cursor, and Antigravity.
 
 ### Prerequisites (Important!)
 - Node.js
 - `arduino-cli` installed (and accessible on `PATH`)
-- `Clangd` for the syntax to work.
 - For Windows users, install them here (<a href="https://downloads.arduino.cc/arduino-cli/arduino-cli_latest_Windows_64bit.msi">arduino-cli Installer</a>, <a href="https://nodejs.org/dist/v24.15.0/node-v24.15.0-x64.msi">Node Installer</a> and <a href="https://github.com/git-for-windows/git/releases/download/v2.54.0.windows.1/Git-2.54.0-64-bit.exe">Git Installer(recommended)</a>)
 - For Mac/Linux/Other users, install them here (<a href="https://arduino.github.io/arduino-cli/1.4/installation/">arduino-cli</a>, <a href="https://nodejs.org/en/download">Node</a> and <a href="https://git-scm.com/install/">Git (recommended)</a>)
 - Restart your VS Code (maybe PC?) after it. Test "node -v" and "arduino-cli -v" on the terminal.

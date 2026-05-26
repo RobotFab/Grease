@@ -1,976 +1,197 @@
-"use strict";
-var __create = Object.create;
-var __defProp = Object.defineProperty;
-var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
-var __getOwnPropNames = Object.getOwnPropertyNames;
-var __getProtoOf = Object.getPrototypeOf;
-var __hasOwnProp = Object.prototype.hasOwnProperty;
-var __export = (target, all) => {
-  for (var name in all)
-    __defProp(target, name, { get: all[name], enumerable: true });
-};
-var __copyProps = (to, from, except, desc) => {
-  if (from && typeof from === "object" || typeof from === "function") {
-    for (let key of __getOwnPropNames(from))
-      if (!__hasOwnProp.call(to, key) && key !== except)
-        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
-  }
-  return to;
-};
-var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(
-  // If the importer is in node compatibility mode or this is not an ESM
-  // file that has been converted to a CommonJS file using a Babel-
-  // compatible transform (i.e. "__esModule" has not been set), then set
-  // "default" to the CommonJS "module.exports" for node compatibility.
-  isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
-  mod
-));
-var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
+var Zt=Object.create;var be=Object.defineProperty;var er=Object.getOwnPropertyDescriptor;var tr=Object.getOwnPropertyNames;var rr=Object.getPrototypeOf,nr=Object.prototype.hasOwnProperty;var sr=(t,e)=>{for(var n in e)be(t,n,{get:e[n],enumerable:!0})},st=(t,e,n,r)=>{if(e&&typeof e=="object"||typeof e=="function")for(let s of tr(e))!nr.call(t,s)&&s!==n&&be(t,s,{get:()=>e[s],enumerable:!(r=er(e,s))||r.enumerable});return t};var v=(t,e,n)=>(n=t!=null?Zt(rr(t)):{},st(e||!t||!t.__esModule?be(n,"default",{value:t,enumerable:!0}):n,t)),or=t=>st(be({},"__esModule",{value:!0}),t);var Mr={};sr(Mr,{activate:()=>kr,deactivate:()=>Ar});module.exports=or(Mr);var i=v(require("vscode")),fe=v(require("node:os")),B=v(require("node:path"));var ot=require("node:child_process"),ye=v(require("node:fs")),at=v(require("node:os")),we=v(require("node:path"));async function y(t,e){let n=process.env.ARDUINO_CLI_PATH||"arduino-cli";return new Promise(r=>{let s=(0,ot.spawn)(n,t,{cwd:e,env:process.env,shell:at.platform()==="win32"}),o="",l="";s.stdout.on("data",d=>o+=d.toString()),s.stderr.on("data",d=>l+=d.toString()),s.on("error",d=>r({success:!1,exitCode:null,stdout:o,stderr:`${l}
+${String(d)}`})),s.on("close",d=>r({success:d===0,exitCode:d,stdout:o,stderr:l}))})}async function _e(){return y(["core","update-index"])}async function De(t){return y(["core","install",t])}function it(t){if(!t||typeof t!="string")return null;let e=t.split(":");return e.length>=2?`${e[0]}:${e[1]}`:null}async function lt(t){let e=await y(["core","list","--json"]);if(!e.success)return!1;try{let n=JSON.parse(e.stdout),r=Array.isArray(n?.platforms)?n.platforms:[];for(let s of r)if(String(s?.id??"")===t)return!0}catch{}return!1}async function xe(t,e,n){if(!t||!e)return;let r=we.join(e,".grease-build");try{let s=await y(["compile","--fqbn",t,"--only-compilation-database","--build-path",r,e],e);if(!s.success){n.appendLine("[clangd] Failed to generate compile_commands.json: "+s.stderr);return}let o=we.join(r,"compile_commands.json"),l=we.join(e,"compile_commands.json");if(!ye.existsSync(o)){n.appendLine(`[clangd] arduino-cli reported success but ${o} is missing \u2014 clangd will not have a compilation database.`);return}ye.copyFileSync(o,l),n.appendLine("[clangd] compile_commands.json generated for IntelliSense.")}catch(s){n.appendLine("[clangd] Error generating compile_commands.json: "+(s instanceof Error?s.message:String(s)))}}async function dt(){let t=await y(["board","list","--format","json"]),e=t.stdout,n=t.stderr;if(!t.success)return{success:!1,candidates:[],raw:e,stderr:n};let r=e.match(/\{[\s\S]*\}\s*$/)||e.match(/\[[\s\S]*\]\s*$/),s=r?r[0]:e,o;try{o=JSON.parse(s)}catch(p){return{success:!1,candidates:[],raw:e,stderr:`${n}
+Failed to parse JSON: ${p instanceof Error?p.message:String(p)}`}}let l=Array.isArray(o?.detected_ports)?o.detected_ports:[],d=[];for(let p of l){let b=p?.port?.address,A=p?.port?.protocol,M=p?.port?.properties?.vid??null,P=p?.port?.properties?.pid??null,$=p?.port?.properties?.serialNumber??null,w=Array.isArray(p?.matching_boards)?p.matching_boards:[];if(w.length===0){typeof b=="string"&&d.push({port:b,protocol:A,vid:M,pid:P,serialNumber:$});continue}for(let L of w)d.push({port:b,protocol:A,fqbn:L?.fqbn,name:L?.name,vid:M,pid:P,serialNumber:$})}return{success:!0,candidates:d,raw:e,stderr:n}}async function ct(){try{await y(["config","set","library.enable_unsafe_install","true"])}catch{}}var Se=v(require("vscode"));var pt="arduinoMcp.target",ut="arduinoMcp.boardMemory";async function Z(t,e){if(!e){await t.globalState.update(pt,void 0);return}await t.globalState.update(pt,e)}async function qe(t){return t.globalState.get(ut)??{}}async function mt(t,e){await t.globalState.update(ut,e)}function Fe(t,e){return!t||!e?null:`${String(t).toLowerCase()}:${String(e).toLowerCase()}`}function je(t){let e=[];t?.serialNumber&&e.push(`serial:${t.serialNumber}`);let n=Fe(t?.vid,t?.pid);return n&&e.push(n),t?.fqbn&&e.push(`fqbn:${t.fqbn}`),e}async function Ge(t){let e=await dt();return e.success?{success:!0,candidates:e.candidates}:(t.appendLine(`Board detect failed: ${e.stderr}`),{success:!1,candidates:[],stderr:e.stderr})}function ar(t){return[t.name||"Unknown board",t.fqbn?`(${t.fqbn})`:"(no fqbn)",t.port].join("  ")}async function He(t,e,n){if(e.length===0)return null;let r=e.map(o=>{let l=typeof o.fqbn=="string"?o.fqbn:null;return{label:ar(o),description:l?void 0:"Port detected (board unknown - install/select core)",target:{port:o.port,fqbn:l}}});if(n?.fqbn){r.push({kind:Se.QuickPickItemKind.Separator,label:"Change port only (keep current board)"});for(let o of e)r.push({label:`$(plug) ${o.port}`,description:`Keep board: ${n.fqbn}`,target:{port:o.port,fqbn:n.fqbn}})}let s=await Se.window.showQuickPick(r,{title:"Select Arduino board/port",placeHolder:"Pick the correct port (and board if known)",ignoreFocusOut:!1});return s?.target?(await Z(t,s.target),s.target):null}var ft=v(require("node:fs")),j=v(require("vscode"));function gt(t){let e=new Map,n;try{n=ft.readFileSync(t,"utf8")}catch{return e}let r=/\/\*\*([\s\S]*?)\*\//g,s;for(;(s=r.exec(n))!==null;){let o=s[1],l=/@brief\b\s*([\s\S]*?)(?=\n\s*\*\s*(?:@|\n)|\n\s*\*\/|$)/,d=o.match(l);if(!d)continue;let p=d[1].split(`
+`).map(w=>w.replace(/^\s*\*\s?/,"").trim()).filter(w=>w.length>0).join(" ").replace(/\s+/g," ").trim();if(!p)continue;let b=[],A=/@param\s+(\w+)\s+([\s\S]*?)(?=\n\s*\*\s*(?:@|\n)|\n\s*\*\/|$)/g,M;for(;(M=A.exec(o))!==null;){let w=M[2].split(`
+`).map(L=>L.replace(/^\s*\*\s?/,"").trim()).filter(L=>L.length>0).join(" ").replace(/\s+/g," ").trim();M[1]&&w&&b.push({name:M[1],desc:w})}let P=n.slice(s.index+s[0].length,s.index+s[0].length+400),$=ir(P);$&&(e.has($.name)||e.set($.name,{brief:p,signature:$.signature,params:b}))}return e}function ir(t){let e=t.split(`
+`).map(l=>l.trim()).find(l=>l.length>0)??"",n=t.match(/^\s*#define\s+([A-Za-z_]\w*)/);if(n)return{name:n[1],signature:e};let r=t.match(/^\s*extern\s+[\w:<>*&\s]+?\s+([A-Za-z_]\w*)\s*[;[]/);if(r){let l=e.replace(/^extern\s+/,"").replace(/;$/,"").trim();return{name:r[1],signature:l}}let s=t.match(/^\s*class\s+([A-Za-z_]\w*)/);if(s)return{name:s[1],signature:`class ${s[1]}`};let o=t.match(/^\s*(?:(?:virtual|static|inline|explicit|constexpr|friend)\s+)*(?:[A-Za-z_][\w:]*\s*[*&\s]+)+([A-Za-z_]\w*)\s*\(/);return o?{name:o[1],signature:e.replace(/;$/,"").trim()}:null}function ht(t,e){return e.appendLine(`[hover-docs] Loaded ${t.size} Arduino symbol descriptions.`),j.languages.registerHoverProvider([{scheme:"file",language:"cpp"},{scheme:"file",language:"c"},{scheme:"file",language:"arduino"}],{provideHover(n,r){let s=n.getWordRangeAtPosition(r);if(!s)return null;let o=n.getText(s),l=t.get(o);if(!l)return null;let d=new j.MarkdownString;d.appendMarkdown(`**function** \`${o}\`
 
-// src/extension.ts
-var extension_exports = {};
-__export(extension_exports, {
-  activate: () => activate,
-  deactivate: () => deactivate
-});
-module.exports = __toCommonJS(extension_exports);
-var vscode8 = __toESM(require("vscode"));
-var os = __toESM(require("node:os"));
-var path4 = __toESM(require("node:path"));
-var fs3 = __toESM(require("node:fs"));
+`),d.appendMarkdown(`${l.brief}
 
-// src/serverProcess.ts
-var import_node_child_process = require("node:child_process");
-var path = __toESM(require("node:path"));
-var net = __toESM(require("node:net"));
-function delay(ms) {
-  return new Promise((r) => setTimeout(r, ms));
-}
-function canBind(port) {
-  return new Promise((resolve) => {
-    const server = net.createServer();
-    server.once("error", () => resolve(false));
-    server.once("listening", () => {
-      server.close(() => resolve(true));
-    });
-    server.listen(port, "127.0.0.1");
-  });
-}
-async function pickPort(preferred = 3333) {
-  if (await canBind(preferred)) return preferred;
-  for (let p = preferred + 1; p < preferred + 60; p++) {
-    if (await canBind(p)) return p;
-  }
-  throw new Error("No free local port found for Arduino MCP server");
-}
-async function startBundledServer(context, output, preferredPort = 3333) {
-  const port = await pickPort(preferredPort);
-  const nodePath = process.env.ARDUINO_MCP_NODE_PATH || "node";
-  const serverPath = context.asAbsolutePath(path.join("dist", "server.mjs"));
-  const { randomBytes } = await import("node:crypto");
-  let authKey;
-  try {
-    const stored = JSON.parse(fs3.readFileSync(path.join(os.homedir(), ".grease-mcp-auth"), "utf8"));
-    authKey = stored.key || null;
-  } catch (_e) {}
-  if (!authKey) { authKey = randomBytes(24).toString("hex"); }
-  output.appendLine(`Starting bundled Arduino MCP server on port ${port}...`);
-  const child = (0, import_node_child_process.spawn)(nodePath, [serverPath], {
-    cwd: context.extensionPath,
-    env: { ...process.env, MCP_PORT: String(port), MCP_HOST: "127.0.0.1", MCP_AUTH_KEY: authKey },
-    shell: false
-  });
-  child.stdout.on("data", (d) => output.appendLine(`[server] ${String(d).trimEnd()}`));
-  child.stderr.on("data", (d) => output.appendLine(`[server:err] ${String(d).trimEnd()}`));
-  child.on("exit", (code) => output.appendLine(`[server] exited with code ${code}`));
-  await delay(250);
-  if (child.exitCode !== null) {
-    throw new Error(`Bundled server exited early with code ${child.exitCode}`);
-  }
-  return {
-    port,
-    authKey,
-    stop: async () => {
-      if (child.killed) return;
-      child.kill("SIGTERM");
-      await delay(200);
-      if (!child.killed) child.kill("SIGKILL");
-    }
-  };
-}
+`),d.appendCodeblock(l.signature,"cpp");for(let p of l.params)d.appendMarkdown(`*@param* \`${p.name}\` \u2014 ${p.desc}
 
-// src/boards.ts
-var vscode = __toESM(require("vscode"));
+`);return d.isTrusted=!1,new j.Hover(d,s)}})}async function vt(t,e){let n=j.extensions.getExtension("llvm-vs-code-extensions.vscode-clangd");if(!n){e.appendLine("[hover-filter] clangd extension not found \u2014 filter skipped");return}let r;try{r=n.isActive?n.exports:await n.activate()}catch(p){e.appendLine("[hover-filter] clangd activation error: "+String(p));return}let s=r?.languageClient;if(!s){e.appendLine("[hover-filter] languageClient not exposed by clangd \u2014 filter skipped");return}let l=(s._clientOptions??s.clientOptions)?.middleware;if(!l){e.appendLine("[hover-filter] clangd middleware not accessible \u2014 filter skipped");return}let d=l.provideHover;l.provideHover=async(p,b,A,M)=>{let P=p.getWordRangeAtPosition(b),$=P?p.getText(P):"";if($&&t.has($))return null;let w=d?await d(p,b,A,M):await M(p,b,A);return w&&lr(w)},e.appendLine("[hover-filter] clangd hover filter installed")}function lr(t){let n=(Array.isArray(t.contents)?t.contents:[t.contents]).map(r=>{if(!(r instanceof j.MarkdownString))return r;let s=r.value.replace(/^provided by ["'][^"'\n]*["']\s*$/gm,"").replace(/\n{3,}/g,`
 
-// src/arduinoCli.ts
-var import_node_child_process2 = require("node:child_process");
-async function runArduinoCli(args, cwd) {
-  const cmd = process.env.ARDUINO_CLI_PATH || "arduino-cli";
-  return new Promise((resolve) => {
-    const child = (0, import_node_child_process2.spawn)(cmd, args, { cwd, env: process.env, shell: os.platform() === "win32" });
-    let stdout = "";
-    let stderr = "";
-    child.stdout.on("data", (d) => stdout += d.toString());
-    child.stderr.on("data", (d) => stderr += d.toString());
-    child.on("error", (err) => resolve({
-      success: false, exitCode: null, stdout, stderr: `${stderr}
-${String(err)}`
-    }));
-    child.on("close", (code) => resolve({ success: code === 0, exitCode: code, stdout, stderr }));
-  });
-}
-async function updateIndexes() {
-  return runArduinoCli(["core", "update-index"]);
-}
-async function installCore(pkg) {
-  return runArduinoCli(["core", "install", pkg]);
-}
-function extractCoreFromFqbn(fqbn) {
-  if (!fqbn || typeof fqbn !== "string") return null;
-  const parts = fqbn.split(":");
-  if (parts.length >= 2) return `${parts[0]}:${parts[1]}`;
-  return null;
-}
-async function isCoreInstalled(corePkg) {
-  const result = await runArduinoCli(["core", "list", "--json"]);
-  if (!result.success) return false;
-  try {
-    const parsed = JSON.parse(result.stdout);
-    const platforms = Array.isArray(parsed?.platforms) ? parsed.platforms : [];
-    for (const p of platforms) {
-      const id = String(p?.id ?? "");
-      if (id === corePkg) return true;
-    }
-  } catch { }
-  return false;
-}
-async function generateCompileCommands(fqbn, sketchPath, outputChannel) {
-  if (!fqbn || !sketchPath) return;
-  try {
-    const result = await runArduinoCli(["compile", "--fqbn", fqbn, "--only-compilation-database", sketchPath], sketchPath);
-    if (result.success) {
-      outputChannel.appendLine("[clangd] compile_commands.json generated for IntelliSense.");
-    } else {
-      outputChannel.appendLine("[clangd] Failed to generate compile_commands.json: " + result.stderr);
-    }
-  } catch (e) {
-    outputChannel.appendLine("[clangd] Error generating compile_commands.json: " + (e instanceof Error ? e.message : String(e)));
-  }
-}
-async function detectBoardCandidates() {
-  const result = await runArduinoCli(["board", "list", "--format", "json"]);
-  const raw = result.stdout;
-  const stderr = result.stderr;
-  if (!result.success) {
-    return { success: false, candidates: [], raw, stderr };
-  }
-  const match = raw.match(/\{[\s\S]*\}\s*$/) || raw.match(/\[[\s\S]*\]\s*$/);
-  const jsonStr = match ? match[0] : raw;
-  let parsed;
-  try {
-    parsed = JSON.parse(jsonStr);
-  } catch (e) {
-    return {
-      success: false, candidates: [], raw, stderr: `${stderr}
-Failed to parse JSON: ${e instanceof Error ? e.message : String(e)}`
-    };
-  }
-  const ports = Array.isArray(parsed?.detected_ports) ? parsed.detected_ports : [];
-  const candidates = [];
-  for (const p of ports) {
-    const address = p?.port?.address;
-    const protocol = p?.port?.protocol;
-    const vid = p?.port?.properties?.vid ?? null;
-    const pid = p?.port?.properties?.pid ?? null;
-    const serialNumber = p?.port?.properties?.serialNumber ?? null;
-    const matching = Array.isArray(p?.matching_boards) ? p.matching_boards : [];
-    if (matching.length === 0) {
-      if (typeof address === "string") {
-        candidates.push({ port: address, protocol, vid, pid, serialNumber });
-      }
-      continue;
-    }
-    for (const b of matching) {
-      candidates.push({
-        port: address,
-        protocol,
-        fqbn: b?.fqbn,
-        name: b?.name,
-        vid,
-        pid,
-        serialNumber
-      });
-    }
-  }
-  return { success: true, candidates, raw, stderr };
-}
+`).trim(),o=new j.MarkdownString(s);return o.isTrusted=r.isTrusted,o});return new j.Hover(n,t.range)}var R=v(require("vscode")),O=v(require("node:fs")),G=v(require("node:path"));var q=v(require("node:fs")),D=v(require("node:path")),bt=require("node:child_process"),Ne="// arduino-grease:hover-docs:v1";function wt(t){return["# Generated by Arduino Grease.","# Tells clangd how to parse .ino files (they are not valid C++ on their own).","CompileFlags:","  Add: [-xc++, -include, Arduino.h]","Index:","  Background: Build",""].join(`
+`)}function dr(t){return new Promise(e=>{let n=t||"arduino-cli",r="",s;try{s=(0,bt.spawn)(n,["config","get","directories.data"],{shell:!1})}catch{e(null);return}s.stdout.on("data",o=>{r+=o.toString()}),s.on("error",()=>e(null)),s.on("close",()=>{let o=r.trim();if(o){e(o);return}let l=process.env.HOME||process.env.USERPROFILE||"";if(process.platform==="darwin")e(D.join(l,"Library","Arduino15"));else if(process.platform==="win32"){let d=process.env.LOCALAPPDATA||D.join(l,"AppData","Local");e(D.join(d,"Arduino15"))}else e(D.join(l,".arduino15"))})})}var cr={name:"Print.h (classic AVR shape)",signature:/virtual size_t write\(uint8_t\) = 0;\s*\n\s*size_t write\(const char \*str\)/m,edits:[{find:/(\n)(\s*)virtual size_t write\(uint8_t\) = 0;\n/,replace:`$1$2/**
+$2 * \\brief Send one raw byte to the stream.
+$2 *
+$2 * Sends the byte unchanged (no formatting) and returns the number of
+$2 * bytes written (0 if the underlying device couldn't accept it).
+$2 */
+$2virtual size_t write(uint8_t) = 0;
+`},{find:/\n(\s*)size_t print\(const __FlashStringHelper \*\);\n/,replace:`
+$1/**
+$1 * \\brief Write data to the stream as human-readable text.
+$1 *
+$1 * Numbers are converted to a decimal string by default; the second
+$1 * argument selects a base \u2014 DEC (10), HEX (16), OCT (8), or BIN (2).
+$1 * For floating-point values the second argument is the number of digits
+$1 * after the decimal point (default 2). Strings, chars, and Printables
+$1 * are written verbatim. Returns the number of bytes sent.
+$1 */
+$1size_t print(const __FlashStringHelper *);
+`},{find:/\n(\s*)size_t println\(const __FlashStringHelper \*\);\n/,replace:`
+$1/**
+$1 * \\brief Like print(), then send "\\r\\n" (carriage return + line feed).
+$1 *
+$1 * Identical to print() but appends a newline. The no-argument form
+$1 * sends just the newline. Returns the number of bytes sent.
+$1 */
+$1size_t println(const __FlashStringHelper *);
+`}]},pr={name:"Stream.h",signature:/virtual int available\(\) = 0;\s*\n\s*virtual int read\(\) = 0;\s*\n\s*virtual int peek\(\) = 0;/m,edits:[{find:/(\n)(\s*)virtual int available\(\) = 0;\n(\s*)virtual int read\(\) = 0;\n(\s*)virtual int peek\(\) = 0;/,replace:`$1$2/**
+$2 * \\brief Number of bytes waiting in the stream's input buffer.
+$2 *
+$2 * Returns 0 if nothing has arrived yet. Use this to check whether read()
+$2 * will return immediately. Example: \`if (Serial.available()) ...\`.
+$2 */
+$2virtual int available() = 0;
+$3/**
+$3 * \\brief Remove and return the next byte from the stream's input buffer.
+$3 *
+$3 * Returns -1 if no data is available.
+$3 */
+$3virtual int read() = 0;
+$4/**
+$4 * \\brief Look at the next byte without removing it from the input buffer.
+$4 *
+$4 * Returns -1 if no data is available.
+$4 */
+$4virtual int peek() = 0;`},{find:/\n(\s*)long parseInt\(LookaheadMode lookahead = SKIP_ALL, char ignore = NO_IGNORE_CHAR\);\n/,replace:`
+$1/**
+$1 * \\brief Read characters from the stream and parse them as a signed long.
+$1 *
+$1 * Skips leading non-digit characters (configurable via \`lookahead\`), then
+$1 * reads digits until the first non-digit. Returns 0 on timeout.
+$1 */
+$1long parseInt(LookaheadMode lookahead = SKIP_ALL, char ignore = NO_IGNORE_CHAR);
+`},{find:/\n(\s*)size_t readBytes\( char \*buffer, size_t length\);/,replace:`
+$1/**
+$1 * \\brief Read up to \`length\` bytes into \`buffer\`.
+$1 *
+$1 * Stops when the buffer is full or the read times out. Returns the actual
+$1 * number of bytes placed in the buffer (0 if none).
+$1 */
+$1size_t readBytes( char *buffer, size_t length);`}]},ur={name:"HardwareSerial.h (AVR concrete shape)",signature:/void begin\(unsigned long baud\) \{ begin\(baud, SERIAL_8N1\); \}\s*\n\s*void begin\(unsigned long, uint8_t\);/m,edits:[{find:/(\n)(\s*)void begin\(unsigned long baud\) \{ begin\(baud, SERIAL_8N1\); \}/,replace:`$1$2/**
+$2 * \\brief Start the UART at the given baud rate (8N1).
+$2 *
+$2 * Always call this from setup() before using Serial. Common rates are
+$2 * 9600, 19200, 38400, 57600, 115200. The other side must match.
+$2 */
+$2void begin(unsigned long baud) { begin(baud, SERIAL_8N1); }`},{find:/(\n)(\s*)void end\(\);(\s*\n)/,replace:`$1$2/** \\brief Shut down the UART. Frees the pins for other use. */
+$2void end();$3`}]},mr={name:"HardwareSerial.h (api/ pure-virtual shape)",signature:/virtual void begin\(unsigned long\) = 0;\s*\n\s*virtual void begin\(unsigned long baudrate, uint16_t config\) = 0;/m,edits:[{find:/(\n)(\s*)virtual void begin\(unsigned long\) = 0;\n(\s*)virtual void begin\(unsigned long baudrate, uint16_t config\) = 0;/,replace:`$1$2/**
+$2 * \\brief Start the UART at the given baud rate (8N1).
+$2 *
+$2 * Always call this from setup() before using Serial. Common rates are
+$2 * 9600, 19200, 38400, 57600, 115200. The other side must match.
+$2 */
+$2virtual void begin(unsigned long) = 0;
+$3/** \\brief Start the UART with an explicit frame format (SERIAL_xyz). */
+$3virtual void begin(unsigned long baudrate, uint16_t config) = 0;`},{find:/(\n)(\s*)virtual void end\(\) = 0;/,replace:`$1$2/** \\brief Shut down the UART. Frees the pins for other use. */
+$2virtual void end() = 0;`}]},fr=[cr,pr,ur,mr];function gr(t,e){let n;try{n=q.readFileSync(t,"utf8")}catch(o){return{status:"error",reason:"read: "+(o instanceof Error?o.message:String(o))}}if(n.indexOf(Ne)!==-1)return{status:"skipped",reason:"already patched"};if(!e.signature.test(n))return{status:"skipped",reason:"shape mismatch"};let r=n,s=0;for(let o of e.edits)o.find.test(r)&&(r=r.replace(o.find,o.replace),s++);if(s===0)return{status:"skipped",reason:"no edit anchors matched"};/\*\//.test(r)?r=r.replace(/\*\/\n/,`*/
+`+Ne+`
+`):r=Ne+`
+`+r;try{return q.writeFileSync(t,r,"utf8"),{status:"patched",edits:s}}catch(o){return{status:"error",reason:"write: "+(o instanceof Error?o.message:String(o))}}}function hr(t){let e=[],n=D.join(t,"packages"),r;try{r=q.readdirSync(n)}catch{return e}for(let s of r){let o=D.join(n,s,"hardware"),l;try{l=q.readdirSync(o)}catch{continue}for(let d of l){let p=D.join(o,d),b;try{b=q.readdirSync(p)}catch{continue}for(let A of b){let M=D.join(p,A,"cores"),P;try{P=q.readdirSync(M)}catch{continue}for(let $ of P){let w=D.join(M,$);for(let L of["Print.h","Stream.h","HardwareSerial.h"]){let ge=D.join(w,L),he=D.join(w,"api",L);q.existsSync(ge)&&e.push(ge),q.existsSync(he)&&e.push(he)}}}}}return e}async function yt(t={}){let e=t.log||(()=>{}),n=await dr(t.arduinoCliPath);if(!n)return e("[hover-docs] Could not resolve Arduino data dir; skipping core patches."),{patched:0,skipped:0,errors:0};e("[hover-docs] Scanning cores under "+n);let r=hr(n),s=0,o=0,l=0;for(let d of r){let p={status:"skipped",reason:"no matching patch"};for(let b of fr){let A=gr(d,b);if(A.status==="patched"){p=A;break}if(A.status==="skipped"&&A.reason==="already patched"){p=A;break}p=A}p.status==="patched"?(s++,e("[hover-docs] Patched "+d+" ("+p.edits+" edits)")):p.status==="error"?(l++,e("[hover-docs] Error patching "+d+": "+p.reason)):o++}return e("[hover-docs] Done. Patched "+s+", skipped "+o+", errors "+l+"."),{patched:s,skipped:o,errors:l}}var ee=v(require("vscode")),St=v(require("node:crypto")),F=v(require("node:fs")),Ct=v(require("node:os")),C=v(require("node:path"));function ze(t){try{return F.readdirSync(t)}catch{return[]}}function ne(t){let e=C.basename(t),n=C.join(t,`${e}.ino`);if(F.existsSync(n))return n;let r=ze(t).filter(s=>s.toLowerCase().endsWith(".ino"));return r.length===1?C.join(t,r[0]):null}function xt(t){return ne(t)!==null}function kt(t){if(!t)return{kind:"missing-ino",folder:t};let e=C.basename(t),n=C.join(t,`${e}.ino`);if(F.existsSync(n))return{kind:"ok",folder:t,mainIno:n};let r=ze(t).filter(s=>s.toLowerCase().endsWith(".ino"));if(r.length===0)return{kind:"missing-ino",folder:t};if(r.length===1){let s=C.join(t,r[0]),o=C.basename(r[0],".ino"),l=C.join(t,o,r[0]);return{kind:"name-mismatch",folder:t,looseIno:s,expectedPath:l}}return{kind:"ambiguous",folder:t,candidates:r.map(s=>C.join(t,s))}}function At(){let t=ee.window.activeTextEditor;if(t&&t.document.uri.fsPath.toLowerCase().endsWith(".ino"))return t.document.uri.fsPath;for(let e of ee.window.visibleTextEditors)if(e.document.uri.fsPath.toLowerCase().endsWith(".ino"))return e.document.uri.fsPath;return null}function Mt(t){if(!t||!t.toLowerCase().endsWith(".ino")||!F.existsSync(t))return null;let e=C.basename(t,C.extname(t)),n=C.dirname(t);if(C.basename(n)===e)return{sketchDir:n,mainIno:t,isTemp:!1};let s=St.createHash("sha1").update(t).digest("hex").slice(0,10),o=C.join(Ct.tmpdir(),"arduino-grease-sketches",`${e}-${s}`),l=C.join(o,e),d=C.join(l,`${e}.ino`);try{F.mkdirSync(l,{recursive:!0}),F.copyFileSync(t,d);for(let p of ze(n)){let b=p.toLowerCase();if(b.endsWith(".h")||b.endsWith(".hpp")||b.endsWith(".cpp")||b.endsWith(".c")||b.endsWith(".cc")||b.endsWith(".cxx"))try{F.copyFileSync(C.join(n,p),C.join(l,p))}catch{}}}catch{return null}return{sketchDir:l,mainIno:d,isTemp:!0,originalIno:t,originalDir:n}}function se(){let t=ee.window.activeTextEditor;if(t){let r=t.document.uri.fsPath;if(r.toLowerCase().endsWith(".ino"))return C.dirname(r)}for(let r of ee.window.visibleTextEditors){let s=r.document.uri.fsPath;if(s.toLowerCase().endsWith(".ino"))return C.dirname(s)}let n=ee.workspace.workspaceFolders?.[0]?.uri.fsPath;if(!n)return null;if(xt(n))return n;try{let r=F.readdirSync(n,{withFileTypes:!0});for(let s of r){if(!s.isDirectory())continue;let o=C.join(n,s.name);if(xt(o))return o}}catch{}return n}var vr="# Generated by Arduino Grease.";function We(t,e,n){if(!t)return!1;try{let r=G.join(t,".clangd"),s=wt(e),o=!0;try{let l=O.readFileSync(r,"utf8");if(l===s)o=!1;else if(!l.startsWith(vr))return n.appendLine(`[clangd] Leaving user-owned ${r} untouched.`),!0}catch{}return o&&(O.writeFileSync(r,s),n.appendLine(`[clangd] Wrote ${r}`)),!0}catch(r){return n.appendLine(`[clangd] Failed to write .clangd: ${r instanceof Error?r.message:String(r)}`),!1}}function br(t){let e=G.join(t,"compile_commands.json");if(!O.existsSync(e))return!0;let n=ne(t);if(!n)return!0;try{let r=O.statSync(e);return O.statSync(n).mtimeMs>r.mtimeMs}catch{return!0}}async function Ce(t){let{sketchFolder:e,fqbn:n,sidecarPath:r,output:s,silent:o}=t;if(!e)return s.appendLine("[clangd] No sketch folder \u2014 IntelliSense refresh skipped."),!1;We(e,r,s);let l=kt(e);return l.kind==="name-mismatch"?(s.appendLine(`[clangd] Sketch validation failed: '${G.basename(l.looseIno)}' is loose inside '${G.basename(l.folder)}/'. Arduino requires it to live at '${l.expectedPath}'.`),o||wr(l,s),!1):l.kind==="missing-ino"?(s.appendLine(`[clangd] Sketch validation failed: no .ino in ${l.folder}.`),o||R.window.showWarningMessage(`Arduino Grease: ${l.folder} contains no .ino file. Open or create a sketch first.`),!1):l.kind==="ambiguous"?(s.appendLine(`[clangd] Sketch validation failed: ${l.candidates.length} .ino files in ${l.folder} and none matches the folder name. Pick one and rename the folder to match.`),o||R.window.showWarningMessage("Arduino Grease: Multiple .ino files in this folder. Move the one you're editing into its own folder (e.g., MySketch/MySketch.ino) so Arduino can compile it."),!1):n?(await xe(n,e,s),!0):(s.appendLine("[clangd] No board target set \u2014 .clangd written but compile_commands.json skipped (pick a board first)."),!1)}async function wr(t,e){let n=G.basename(t.looseIno),r=await R.window.showWarningMessage(`Arduino Grease: "${n}" is in the wrong place.
 
-// src/boards.ts
-var TARGET_KEY = "arduinoMcp.target";
-async function loadTarget(context) {
-  return context.globalState.get(TARGET_KEY) ?? null;
-}
-async function saveTarget(context, target) {
-  if (!target) {
-    await context.globalState.update(TARGET_KEY, void 0);
-    return;
-  }
-  await context.globalState.update(TARGET_KEY, target);
-}
-var BOARD_MEMORY_KEY = "arduinoMcp.boardMemory";
-async function loadBoardMemory(context) {
-  return context.globalState.get(BOARD_MEMORY_KEY) ?? {};
-}
-async function saveBoardMemory(context, memory) {
-  await context.globalState.update(BOARD_MEMORY_KEY, memory);
-}
-function vidPidKey(vid, pid) {
-  if (!vid || !pid) return null;
-  return `${String(vid).toLowerCase()}:${String(pid).toLowerCase()}`;
-}
-function boardMemoryKeys(candidate) {
-  const keys = [];
-  if (candidate?.serialNumber) keys.push(`serial:${candidate.serialNumber}`);
-  if (candidate?.vid && candidate?.pid) keys.push(vidPidKey(candidate.vid, candidate.pid));
-  if (candidate?.fqbn) keys.push(`fqbn:${candidate.fqbn}`);
-  return keys;
-}
-async function refreshBoards(output) {
-  const result = await detectBoardCandidates();
-  if (!result.success) {
-    output.appendLine(`Board detect failed: ${result.stderr}`);
-    return { success: false, candidates: [], stderr: result.stderr };
-  }
-  return { success: true, candidates: result.candidates };
-}
-function pickLabel(c) {
-  const parts = [c.name || "Unknown board", c.fqbn ? `(${c.fqbn})` : "(no fqbn)", c.port];
-  return parts.join("  ");
-}
-async function promptForTarget(context, candidates, currentTarget) {
-  if (candidates.length === 0) return null;
-  const items = candidates.map((c) => {
-    const fqbn = typeof c.fqbn === "string" ? c.fqbn : null;
-    return {
-      label: pickLabel(c),
-      description: fqbn ? void 0 : "Port detected (board unknown - install/select core)",
-      target: { port: c.port, fqbn }
-    };
-  });
-  if (currentTarget?.fqbn) {
-    items.push({ kind: -1, label: "Change port only (keep current board)" });
-    for (const c of candidates) {
-      items.push({
-        label: `$(plug) ${c.port}`,
-        description: `Keep board: ${currentTarget.fqbn}`,
-        target: { port: c.port, fqbn: currentTarget.fqbn }
-      });
-    }
-  }
-  const picked = await vscode.window.showQuickPick(items, {
-    title: "Select Arduino board/port",
-    placeHolder: "Pick the correct port (and board if known)",
-    ignoreFocusOut: false
-  });
-  if (!picked) return null;
-  await saveTarget(context, picked.target);
-  return picked.target;
-}
-
-// src/sketch.ts
-var vscode2 = __toESM(require("vscode"));
-var fs = __toESM(require("node:fs"));
-var path2 = __toESM(require("node:path"));
-function safeReadDir(folder) {
-  try {
-    return fs.readdirSync(folder);
-  } catch {
-    return [];
-  }
-}
-function findMainSketchFile(sketchFolder) {
-  const base = path2.basename(sketchFolder);
-  const preferred = path2.join(sketchFolder, `${base}.ino`);
-  if (fs.existsSync(preferred)) return preferred;
-  const inoFiles = safeReadDir(sketchFolder).filter((f) => f.toLowerCase().endsWith(".ino"));
-  if (inoFiles.length === 1) {
-    return path2.join(sketchFolder, inoFiles[0]);
-  }
-  return null;
-}
-function isSketchFolder(folder) {
-  return findMainSketchFile(folder) !== null;
-}
-function getSketchFolder() {
-  const editor = vscode2.window.activeTextEditor;
-  if (editor) {
-    const fsPath = editor.document.uri.fsPath;
-    if (fsPath.toLowerCase().endsWith(".ino")) {
-      return path2.dirname(fsPath);
-    }
-  }
-  const wf = vscode2.workspace.workspaceFolders?.[0];
-  const root = wf?.uri.fsPath;
-  if (!root) return null;
-  if (isSketchFolder(root)) {
-    return root;
-  }
-  try {
-    const entries = fs.readdirSync(root, { withFileTypes: true });
-    for (const entry of entries) {
-      if (!entry.isDirectory()) continue;
-      const child = path2.join(root, entry.name);
-      if (isSketchFolder(child)) return child;
-    }
-  } catch {
-  }
-  return root;
-}
-
-// src/serverHttpClient.ts
-var baseUrl = "http://127.0.0.1:3333";
-var _authKey = "";
-function setAuthKey(key) { _authKey = key; }
-function setServerBaseUrl(url) {
-  const clean = String(url || "").trim();
-  if (!clean) return;
-  baseUrl = clean.replace(/\/$/, "");
-}
-async function postJson(path5, body) {
-  const res = await fetch(`${baseUrl}${path5}`, {
-    method: "POST",
-    headers: { "content-type": "application/json", "x-grease-auth": _authKey },
-    body: JSON.stringify(body ?? {})
-  });
-  if (!res.ok) throw new Error(`HTTP ${res.status} ${path5}`);
-  return await res.json();
-}
-async function getHealth() {
-  const res = await fetch(`${baseUrl}/health`, { headers: { "x-grease-auth": _authKey } });
-  if (!res.ok) throw new Error(`HTTP ${res.status} /health`);
-  return await res.json();
-}
-async function syncTargetToServer(target) {
-  try {
-    await postJson("/target", { port: target?.port ?? null, fqbn: target?.fqbn ?? null });
-  } catch { /* server may not be ready */ }
-}
-async function serialOpen(args) {
-  return postJson("/serial/open", args);
-}
-async function serialClose() {
-  return postJson("/serial/close", {});
-}
-async function serialWrite(args) {
-  return postJson("/serial/write", args);
-}
-async function serialRead() {
-  return postJson("/serial/read", {});
-}
-
-// src/ui/serialMonitorPanel.ts
-var SerialMonitorPanel = class {
-  constructor(output) {
-    this.output = output;
-  }
-  output;
-  pollTimer = null;
-  connectedPort = null;
-  baudRate = 9600;
-  isConnected = false;
-  async start(defaultPort, baud = 9600) {
-    this.baudRate = baud;
-    if (!defaultPort) {
-      this.output.appendLine("Serial: no port selected.");
-      return;
-    }
-    await this.connect(defaultPort, this.baudRate);
-    this.startPolling();
-  }
-  async stop() {
-    if (!this.isConnected) return;
-    await serialClose();
-    this.isConnected = false;
-    this.output.appendLine("Serial disconnected");
-  }
-  async handleConsoleCommand(raw) {
-    const text = String(raw ?? "").trim();
-    if (!text) return;
-    if (/^baud\s*=\s*\d+$/i.test(text)) {
-      const next = Number(text.split("=")[1]);
-      if (!Number.isFinite(next) || next <= 0) {
-        this.output.appendLine("Serial: invalid baud value.");
-        return;
-      }
-      this.baudRate = next;
-      this.output.appendLine(`Serial baud set to ${next}`);
-      if (this.connectedPort) {
-        await this.connect(this.connectedPort, this.baudRate);
-      }
-      return;
-    }
-    if (/^clear$/i.test(text)) {
-      const r = await serialRead();
-      const dropped = r.lines?.length ?? 0;
-      this.output.appendLine(`Serial buffer cleared (${dropped} lines dropped).`);
-      return;
-    }
-    if (/^disconnect$/i.test(text)) {
-      await this.stop();
-      return;
-    }
-    if (/^connect$/i.test(text)) {
-      if (!this.connectedPort) {
-        this.output.appendLine("Serial: no known port to connect.");
-        return;
-      }
-      await this.connect(this.connectedPort, this.baudRate);
-      return;
-    }
-    const sendQuoted = text.match(/^send\s*=\s*"([\s\S]*)"$/i);
-    const sendPlain = text.match(/^send\s*=\s*(.+)$/i);
-    if (sendQuoted || sendPlain) {
-      const payload = sendQuoted ? sendQuoted[1] : sendPlain?.[1] ?? "";
-      if (!this.isConnected) {
-        this.output.appendLine("Serial: not connected.");
-        return;
-      }
-      await serialWrite({ data: payload });
-      this.output.appendLine(`[serial:tx] ${payload}`);
-      return;
-    }
-    this.output.appendLine(`Serial: unknown command "${text}".`);
-  }
-  async connect(port, baudRate) {
-    try {
-      await serialOpen({ path: port, baudRate });
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      const isPermDenied = msg.includes("Permission denied") || msg.includes("EACCES") || msg.includes("EPERM");
-      if (isPermDenied && os.platform() === "linux") {
-        vscode8.window.showErrorMessage(
-          `Serial: Permission denied on ${port}. On Linux, run: sudo usermod -a -G dialout $USER — then log out and back in.`,
-          "Copy Command"
-        ).then((action) => {
-          if (action === "Copy Command") vscode8.env.clipboard.writeText(`sudo usermod -a -G dialout $USER`);
-        });
-      } else {
-        vscode8.window.showErrorMessage(`Serial: Failed to open ${port}: ${msg}`);
-      }
-      this.output.appendLine(`Serial open failed: ${msg}`);
-      return;
-    }
-    this.connectedPort = port;
-    this.baudRate = baudRate;
-    this.isConnected = true;
-    this.output.appendLine(`Serial connected: ${port} @ ${baudRate}`);
-  }
-  startPolling() {
-    if (this.pollTimer) return;
-    this.pollTimer = setInterval(() => {
-      if (!this.isConnected) return;
-      void (async () => {
-        try {
-          const r = await serialRead();
-          for (const line of r.lines ?? []) {
-            this.output.appendLine(`[serial] ${line}`);
-          }
-        } catch {
-        }
-      })();
-    }, 250);
-  }
-};
-
-// src/ui/serialPlotterPanel.ts
-var vscode3 = __toESM(require("vscode"));
-function parseAllNumbers(line) {
-  const matches = line.match(/-?\d+(?:\.\d+)?/g);
-  if (!matches) return [];
-  const numbers = [];
-  for (const m of matches) {
-    const n = Number(m);
-    if (Number.isFinite(n)) numbers.push(n);
-  }
-  return numbers;
-}
-function parseLabeled(line) {
-  const pairs = [];
-  const re = /([A-Za-z_]\w*)\s*=\s*(-?\d+(?:\.\d+)?)/g;
-  let m;
-  while ((m = re.exec(String(line))) !== null) {
-    pairs.push({ label: m[1], value: Number(m[2]) });
-  }
-  if (pairs.length > 0) return { labels: pairs.map(p => p.label), numbers: pairs.map(p => p.value) };
-  const numbers = parseAllNumbers(line);
-  return { labels: [], numbers };
-}
-var SerialPlotterPanel = class {
-  constructor(output) {
-    this.output = output;
-  }
-  output;
-  panel = null;
-  pollTimer = null;
-  isConnected = false;
-  show(defaultPort, autoConnect = true) {
-    if (!this.panel) {
-      this.panel = vscode3.window.createWebviewPanel(
-        "arduinoMcp.serialPlotter",
-        "Arduino Grease: Plttr",
-        vscode3.ViewColumn.Beside,
-        { enableScripts: true }
-      );
-      this.panel.onDidDispose(() => this.dispose());
-      this.panel.webview.onDidReceiveMessage((msg) => void this.onMessage(msg));
-    }
-    this.panel.title = "Arduino Grease: Plttr";
-    this.panel.reveal(vscode3.ViewColumn.Beside);
-    this.panel.webview.html = this.html(defaultPort);
-    this.startPolling();
-    this.postStatus();
-    if (autoConnect && defaultPort && !this.isConnected) {
-      void this.connect(defaultPort, 9600);
-    }
-  }
-  dispose() {
-    this.panel = null;
-    if (this.pollTimer) clearInterval(this.pollTimer);
-    this.pollTimer = null;
-  }
-  async connect(port, baudRate) {
-    try {
-      await serialOpen({ path: port, baudRate });
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      const isPermDenied = msg.includes("Permission denied") || msg.includes("EACCES") || msg.includes("EPERM");
-      if (isPermDenied && os.platform() === "linux") {
-        vscode8.window.showErrorMessage(
-          `Serial: Permission denied on ${port}. On Linux, run: sudo usermod -a -G dialout $USER — then log out and back in.`,
-          "Copy Command"
-        ).then((action) => {
-          if (action === "Copy Command") vscode8.env.clipboard.writeText(`sudo usermod -a -G dialout $USER`);
-        });
-      } else {
-        vscode8.window.showErrorMessage(`Serial: Failed to open ${port}: ${msg}`);
-      }
-      this.output.appendLine(`Serial open failed (plotter): ${msg}`);
-      return;
-    }
-    this.output.appendLine(`Serial connected (plotter): ${port} @ ${baudRate}`);
-    this.isConnected = true;
-    this.postStatus();
-  }
-  startPolling() {
-    if (this.pollTimer) return;
-    this.pollTimer = setInterval(() => {
-      if (!this.panel) return;
-      if (!this.isConnected) return;
-      void (async () => {
-        try {
-          const r = await serialRead();
-          const points = [];
-          const labelBatch = [];
-          for (const line of r.lines ?? []) {
-            const parsed = parseLabeled(String(line));
-            if (parsed.numbers.length > 0) {
-              points.push(parsed.numbers);
-              labelBatch.push(parsed.labels);
-            }
-          }
-          if (points.length) this.panel?.webview.postMessage({ type: "points", points, labels: labelBatch });
-          this.panel?.webview.postMessage({ type: "status", status: r.serial });
-        } catch {
-          this.panel?.webview.postMessage({ type: "status", status: { isOpen: false } });
-        }
-      })();
-    }, 180);
-  }
-  postStatus() {
-    if (!this.panel) return;
-    this.panel.webview.postMessage({ type: "status", status: { isOpen: this.isConnected } });
-  }
-  async onMessage(msg) {
-    if (!msg?.type) return;
-    try {
-      if (msg.type === "toggle") {
-        const port = String(msg.path || "");
-        const baud = Number(msg.baudRate || 9600);
-        if (this.isConnected) {
-          await serialClose();
-          this.output.appendLine("Serial disconnected (plotter)");
-          this.isConnected = false;
-        } else {
-          await this.connect(port, baud);
-        }
-        this.postStatus();
-      } else if (msg.type === "clear") {
-        if (this.panel) this.panel.webview.postMessage({ type: "clear" });
-      }
-    } catch (e) {
-      const err = e instanceof Error ? e.message : String(e);
-      this.output.appendLine(`Serial plotter error: ${err}`);
-      vscode3.window.showErrorMessage(`Arduino Grease Plotter: ${err}`);
-      this.postStatus();
-    }
-  }
-  html(defaultPort) {
-    const portValue = defaultPort ? defaultPort.replaceAll('"', "&quot;") : "";
-    const placeholder = os.platform() === "win32" ? "COM1" : "/dev/cu.usbmodem...";
-    return `<!DOCTYPE html>
+Arduino requires sketches to live in a folder of the same name. Right now it's at ${t.looseIno}, but Arduino expects ${t.expectedPath}.`,{modal:!1},"Auto-fix (move into subfolder)","Open Docs");if(r==="Open Docs"){R.env.openExternal(R.Uri.parse("https://docs.arduino.cc/learn/programming/sketches/"));return}if(r!=="Auto-fix (move into subfolder)")return;let s=G.dirname(t.expectedPath);try{if(O.existsSync(t.expectedPath)){R.window.showErrorMessage(`Arduino Grease: Cannot auto-fix \u2014 ${t.expectedPath} already exists.`);return}O.mkdirSync(s,{recursive:!0}),O.renameSync(t.looseIno,t.expectedPath),e.appendLine(`[clangd] Auto-fix: moved ${t.looseIno} \u2192 ${t.expectedPath}`);let o=await R.workspace.openTextDocument(R.Uri.file(t.expectedPath));await R.window.showTextDocument(o,{preview:!1}),R.window.showInformationMessage(`Arduino Grease: Moved ${n} into ${G.basename(s)}/. Run "Regenerate IntelliSense" to finish setup.`)}catch(o){let l=o instanceof Error?o.message:String(o);e.appendLine(`[clangd] Auto-fix failed: ${l}`),R.window.showErrorMessage(`Arduino Grease: Auto-fix failed \u2014 ${l}`)}}function ke(t,e,n){if(!t||!t.toLowerCase().endsWith(".ino"))return;let r=G.dirname(t);We(r,e,n)}async function Lt(t){let e=se();if(e){if(!br(e)){We(e,t.sidecarPath,t.output);return}t.output.appendLine("[clangd] compile_commands.json missing/stale \u2014 regenerating..."),await Ce({sketchFolder:e,fqbn:t.fqbn,sidecarPath:t.sidecarPath,output:t.output,silent:!0})}}var Pt="http://127.0.0.1:3333",Et="";function $t(t){Et=t}function Tt(t){let e=String(t||"").trim();e&&(Pt=e.replace(/\/$/,""))}async function le(t,e){let n=await fetch(`${Pt}${t}`,{method:"POST",headers:{"content-type":"application/json","x-grease-auth":Et},body:JSON.stringify(e??{})});if(!n.ok)throw new Error(`HTTP ${n.status} ${t}`);return await n.json()}async function V(t){try{await le("/target",{port:t?.port??null,fqbn:t?.fqbn??null})}catch{}}async function Ae(t){return le("/serial/open",t)}async function Me(){return le("/serial/close",{})}async function Bt(t){return le("/serial/write",t)}async function de(){return le("/serial/read",{})}var Ot=require("node:child_process"),Le=v(require("node:path")),_t=v(require("node:net")),Ue=v(require("node:os")),Ve=v(require("node:fs")),Dt=require("node:crypto");function It(t){return new Promise(e=>setTimeout(e,t))}function Rt(t){return new Promise(e=>{let n=_t.createServer();n.once("error",()=>e(!1)),n.once("listening",()=>{n.close(()=>e(!0))}),n.listen(t,"127.0.0.1")})}async function yr(t=3333){if(await Rt(t))return t;for(let e=t+1;e<t+60;e++)if(await Rt(e))return e;throw new Error("No free local port found for Arduino MCP server")}async function qt(t,e,n=3333){let r=await yr(n),s=process.env.ARDUINO_MCP_NODE_PATH||"node",o=t.asAbsolutePath(Le.join("dist","server.mjs")),l=null;try{let p=Le.join(Ue.homedir(),".grease","mcp-auth.json");l=JSON.parse(Ve.readFileSync(p,"utf8")).key||null}catch{}if(!l)try{let p=Le.join(Ue.homedir(),".grease-mcp-auth");l=JSON.parse(Ve.readFileSync(p,"utf8")).key||null}catch{}l||(l=(0,Dt.randomBytes)(24).toString("hex")),e.appendLine(`Starting bundled Arduino MCP server on port ${r}...`);let d=(0,Ot.spawn)(s,[o],{cwd:t.extensionPath,env:{...process.env,MCP_PORT:String(r),MCP_HOST:"127.0.0.1",MCP_AUTH_KEY:l},shell:!1});if(d.stdout?.on("data",p=>e.appendLine(`[server] ${String(p).trimEnd()}`)),d.stderr?.on("data",p=>e.appendLine(`[server:err] ${String(p).trimEnd()}`)),d.on("exit",p=>e.appendLine(`[server] exited with code ${p}`)),await It(250),d.exitCode!==null)throw new Error(`Bundled server exited early with code ${d.exitCode}`);return{port:r,authKey:l,stop:async()=>{d.killed||(d.kill("SIGTERM"),await It(200),d.killed||d.kill("SIGKILL"))}}}var K=v(require("vscode")),Pe=class{constructor(e){this.context=e}context;panel=null;show(e){this.panel?this.panel.reveal(K.ViewColumn.Beside):(this.panel=K.window.createWebviewPanel("arduinoMcp.boardTemplate","Arduino Grease: AI Prompt Template",K.ViewColumn.Beside,{enableScripts:!0}),this.panel.onDidDispose(()=>this.panel=null),this.panel.webview.onDidReceiveMessage(n=>{this.onMessage(n)})),this.panel.webview.html=this.html()}async onMessage(e){if(e?.type&&e.type==="copy"){let n=String(e.text??"");await K.env.clipboard.writeText(n),K.window.showInformationMessage("Arduino Grease: Copied prompt to clipboard.")}}html(){return`<!DOCTYPE html>
 <html>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <style>
       :root {
-        --bg: #050806;
-        --panel: #0d1611;
-        --ink: #b5ffc8;
-        --muted: #76bf8b;
-        --stroke: #2d4d3a;
-        --trace: #7dff9e;
+        --bg: #1f1f1f;
+        --panel: #2b2b2b;
+        --ink: #e6e6e6;
+        --muted: #a6a6a6;
+        --stroke: #3a3a3a;
       }
-      body { margin: 0; padding: 12px; background: radial-gradient(circle at 20% 0%, #0c120f, #050806 65%); color: var(--ink); font-family: Consolas, Menlo, Monaco, "Courier New", monospace; font-size:11px; }
-      .card { border: 1px solid var(--stroke); background: var(--panel); padding: 8px; border-radius: 8px; box-shadow: inset 0 0 20px rgba(61, 255, 117, 0.08); }
-      .row { display: flex; gap: 8px; align-items: flex-end; flex-wrap: nowrap; }
-      label { font-size: 10px; color: var(--muted); }
-      input, button {
-        background: #07100b;
+      body { margin: 0; padding: 16px; background: var(--bg); color: var(--ink); font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; }
+      .card { border: 2px solid var(--stroke); background: var(--panel); padding: 12px; border-radius: 12px; box-shadow: 6px 6px 0 #000; margin-bottom: 12px; }
+      .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+      @media (max-width: 980px) { .grid { grid-template-columns: 1fr; } }
+      label { font-size: 12px; color: var(--muted); }
+      textarea, button {
+        background: #171717;
         color: var(--ink);
-        border: 1px solid var(--stroke);
-        border-radius: 6px;
-        padding: 6px 7px;
-        font-size: 11px;
-        font-family: Consolas, Menlo, Monaco, "Courier New", monospace;
+        border: 2px solid var(--stroke);
+        border-radius: 10px;
+        padding: 10px 10px;
+        font-size: 13px;
       }
-      input { min-width: 180px; }
-      #baud { min-width: 90px; }
-      a { color: var(--ink); cursor: pointer; font-family: Consolas, Menlo, Monaco, "Courier New", monospace; font-size: 11px; text-decoration: none; }
-      a:hover { text-decoration: underline; }
-      .status { font-size: 10px; color: var(--muted); margin-left: auto; }
-      .cmdbtn{ color:#d8ffd8; cursor:pointer; position:relative; display:inline; }
-      .cmdbtn::after{
-        content: attr(data-tip);
-        position:absolute; left:0; bottom:120%;
-        background:#0a110a; color:#e5ffe5; border:1px solid #335233; border-radius:4px;
-        padding:2px 4px; font-size:10px; opacity:0; pointer-events:none; transition:opacity .12s ease; white-space:nowrap;
-      }
-      .cmdbtn:hover::after{ opacity:1; }
-      canvas { width: 100%; height: calc(100vh - 162px); border: 1px solid var(--stroke); border-radius: 8px; background: #020502; box-shadow: inset 0 0 35px rgba(0, 255, 90, 0.08); }
-      #legend { display:flex; gap:10px; flex-wrap:wrap; align-items:center; padding:5px 8px; margin-top:4px; border:1px solid var(--stroke); border-radius:6px; background:var(--panel); min-height:26px; font-size:10px; }
-      .leg-item { cursor:pointer; display:flex; align-items:center; gap:3px; user-select:none; }
-      .leg-item:hover { text-decoration:underline; }
-      .leg-bg { cursor:pointer; color:var(--muted); border:1px solid var(--stroke); padding:1px 6px; border-radius:3px; font-size:10px; margin-left:auto; }
-      .leg-bg:hover { color:var(--ink); }
+      textarea { width: 100%; min-height: 120px; resize: vertical; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: 12px; line-height: 1.35; }
+      button { cursor: pointer; min-height: 44px; }
+      .row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+      .muted { color: var(--muted); font-size: 12px; }
     </style>
   </head>
   <body>
-    <div class="card" style="margin-bottom:8px">
-      <div class="row">
-        <div>
-          <label>Port</label><br/>
-          <input id="port" placeholder="${placeholder}" value="${portValue}"/>
-        </div>
-        <div>
-          <label>Baud</label><br/>
-          <input id="baud" value="9600"/>
-        </div>
-        <a class="cmdbtn" data-tip="start/stop" id="toggle" href="#" onclick="event.preventDefault()">||S||</a>
-        <a class="cmdbtn" data-tip="clear" id="clear" href="#" onclick="event.preventDefault()">||C||</a>
-        <div class="status" id="status"></div>
+    <div class="card">
+      <div class="muted">Answer these questions to structure your prompt</div>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <label>Wires, motors and sensors</label>
+        <textarea id="wires" placeholder="Example: Left motor on pins 5/6 (PWM), right motor on pins 9/10, ultrasonic trig=2 echo=3, LDR=A0..."></textarea>
+      </div>
+      <div class="card">
+        <label>Other modules installed</label>
+        <textarea id="modules" placeholder="Example: IMU (MPU6050) on I2C, OLED 128x64, BLE module..."></textarea>
+      </div>
+      <div class="card">
+        <label>Robot structure</label>
+        <textarea id="robot" placeholder="Example: 2-wheel differential drive, geared DC motors, chassis size, power source..."></textarea>
+      </div>
+      <div class="card">
+        <label>Expected behavior</label>
+        <textarea id="behavior" placeholder="Example: Follow wall, avoid obstacles, blink status LED, publish sensor data..."></textarea>
       </div>
     </div>
 
-    <canvas id="canvas" width="1500" height="760"></canvas>
-    <div id="legend"><span class="leg-bg" onclick="toggleBg()">bg</span></div>
+    <div class="card">
+      <div class="row">
+        <button id="generate">Generate prompt</button>
+        <button id="copy">Copy</button>
+      </div>
+      <textarea id="out" style="min-height: 220px" placeholder="Generated prompt will appear here..."></textarea>
+    </div>
 
     <script>
       const vscode = acquireVsCodeApi();
       const $ = (id) => document.getElementById(id);
-      const canvas = $("canvas");
-      const ctx = canvas.getContext("2d");
 
-      const maxPoints = 650;
-      const series = [];
-      let yMin = -0.2;
-      let yMax = 1.2;
-
-      const PLOT_COLORS = ["#7dff9e","#ff7d9e","#9e7dff","#ffff7d","#7dffff","#ffb47d","#ff9e7d","#7db4ff","#ff7dff","#d4ff7d"];
-      let seriesColors = [...PLOT_COLORS];
-      let seriesLabels = [];
-      let numSeriesTotal = 0;
-      let plotBgDark = true;
-
-      function setStatus(s) {
-        if (!s) return;
-        const connected = !!s.isOpen;
-        $("status").textContent = connected ? (" " + s.path + " @ " + s.baudRate) : "Disconnected";
-        $("toggle").textContent = connected ? "||S|| █running " : "||S|| █stopped ";
-        $("toggle").style.color = connected ? "#49c06b" : "#593b3bff";
+      function addSection(lines, title, value) {
+        const text = String(value || "").trim();
+        if (!text) return;
+        lines.push(title + ":");
+        lines.push(text);
+        lines.push("");
       }
 
-      function drawGrid(w, h) {
-        ctx.strokeStyle = plotBgDark ? "rgba(62,255,120,0.12)" : "rgba(0,80,30,0.12)";
-        ctx.lineWidth = 1;
-        for (let x = 50; x < w - 20; x += 40) {
-          ctx.beginPath(); ctx.moveTo(x, 20); ctx.lineTo(x, h - 36); ctx.stroke();
+      function generate() {
+        const wires = $("wires").value;
+        const modules = $("modules").value;
+        const robot = $("robot").value;
+        const behavior = $("behavior").value;
+
+        const lines = ["Arduino prompt context", ""];
+        addSection(lines, "Wires, motors and sensors", wires);
+        addSection(lines, "Other modules installed", modules);
+        addSection(lines, "Robot structure", robot);
+        addSection(lines, "Expected behavior", behavior);
+
+        while (lines.length > 0 && lines[lines.length - 1] === "") {
+          lines.pop();
         }
-        for (let y = 20; y < h - 36; y += 32) {
-          ctx.beginPath(); ctx.moveTo(50, y); ctx.lineTo(w - 20, y); ctx.stroke();
-        }
+
+        $("out").value = lines.join("\\n");
       }
 
-      function draw() {
-        const w = canvas.width;
-        const h = canvas.height;
-        ctx.fillStyle = plotBgDark ? "#020502" : "#f5f5f5";
-        ctx.fillRect(0, 0, w, h);
-        drawGrid(w, h);
-
-        ctx.strokeStyle = plotBgDark ? "rgba(80,255,140,0.35)" : "rgba(0,100,40,0.4)";
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.moveTo(50, 20);
-        ctx.lineTo(50, h - 36);
-        ctx.lineTo(w - 20, h - 36);
-        ctx.stroke();
-
-        if (series.length < 2) return;
-
-        const x0 = 50, y0 = h - 36, x1 = w - 20, y1 = 20;
-        const plotW = x1 - x0;
-        const plotH = y0 - y1;
-
-        ctx.shadowColor = plotBgDark ? "rgba(140,255,170,0.55)" : "rgba(0,80,30,0.4)";
-        ctx.shadowBlur = 10;
-        ctx.lineWidth = 2.2;
-
-        const numSeries = series.length > 0 ? series[series.length - 1].length : 0;
-        for (let s = 0; s < numSeries; s++) {
-          const col = seriesColors[s] !== undefined ? seriesColors[s] : PLOT_COLORS[s % PLOT_COLORS.length];
-          ctx.strokeStyle = col;
-          ctx.beginPath();
-          for (let i = 0; i < series.length; i++) {
-            if (s >= series[i].length) continue;
-            const x = x0 + (i / (maxPoints - 1)) * plotW;
-            const v = series[i][s];
-            const y = y0 - ((v - yMin) / (yMax - yMin)) * plotH;
-            if (i === 0 || s >= series[i-1].length) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-          }
-          ctx.stroke();
-        }
-        ctx.shadowBlur = 0;
-
-        ctx.fillStyle = plotBgDark ? "#8de0a0" : "#006400";
-        ctx.font = "11px Consolas, Menlo, Monaco, monospace";
-        ctx.fillText("min " + yMin.toFixed(2), x0, 14);
-        ctx.fillText("max " + yMax.toFixed(2), x0 + 130, 14);
-        const lastVals = series[series.length - 1] || [];
-        ctx.fillText("last " + lastVals.map(v => v.toFixed(3)).join(", "), x0 + 260, 14);
-      }
-
-      function updateLegend() {
-        const legend = $("legend");
-        if (!legend) return;
-        let html = '';
-        for (let i = 0; i < numSeriesTotal; i++) {
-          if (seriesColors[i] === undefined) seriesColors[i] = PLOT_COLORS[i % PLOT_COLORS.length];
-          const col = seriesColors[i];
-          const label = seriesLabels[i] || ("ch" + (i + 1));
-          html += '<span class="leg-item" style="color:' + col + '" onclick="cycleSeriesColor(' + i + ')">█ ' + label + '</span>';
-        }
-        html += '<span class="leg-bg" onclick="toggleBg()">bg</span>';
-        legend.innerHTML = html;
-      }
-
-      function cycleSeriesColor(i) {
-        const idx = PLOT_COLORS.indexOf(seriesColors[i]);
-        seriesColors[i] = PLOT_COLORS[(idx + 1) % PLOT_COLORS.length];
-        updateLegend();
-        draw();
-      }
-
-      function toggleBg() {
-        plotBgDark = !plotBgDark;
-        canvas.style.background = plotBgDark ? "#020502" : "#f5f5f5";
-        draw();
-      }
-
-      $("toggle").addEventListener("click", () => {
-        vscode.postMessage({ type: "toggle", path: $("port").value, baudRate: Number($("baud").value || 9600) });
-      });
-      $("clear").addEventListener("click", () => vscode.postMessage({ type: "clear" }));
-
-      window.addEventListener("message", (event) => {
-        const msg = event.data;
-        if (msg.type === "points") {
-          const labelBatch = Array.isArray(msg.labels) ? msg.labels : [];
-          let labelsUpdated = false;
-          for (let pi = 0; pi < msg.points.length; pi++) {
-            const p = msg.points[pi];
-            series.push(p);
-            if (series.length > maxPoints) series.shift();
-            for (const val of p) {
-              if (val > yMax) yMax = val + 0.1;
-              if (val < yMin) yMin = val - 0.1;
-            }
-            if (p.length > numSeriesTotal) { numSeriesTotal = p.length; labelsUpdated = true; }
-            const rowLabels = labelBatch[pi];
-            if (rowLabels && rowLabels.length > 0) {
-              for (let li = 0; li < rowLabels.length; li++) {
-                if (seriesLabels[li] !== rowLabels[li]) { seriesLabels[li] = rowLabels[li]; labelsUpdated = true; }
-              }
-            }
-          }
-          if (labelsUpdated) updateLegend();
-          draw();
-        } else if (msg.type === "status") {
-          setStatus(msg.status);
-        } else if (msg.type === "clear") {
-          series.length = 0;
-          seriesLabels.length = 0;
-          seriesColors = [...PLOT_COLORS];
-          numSeriesTotal = 0;
-          yMin = -0.2;
-          yMax = 1.2;
-          updateLegend();
-          draw();
-        }
-      });
-
-      draw();
+      $("generate").addEventListener("click", generate);
+      $("copy").addEventListener("click", () => vscode.postMessage({ type: "copy", text: $("out").value }));
     </script>
   </body>
-</html>`;
-  }
-};
-
-// src/ui/examplesPanel.ts
-var vscode4 = __toESM(require("vscode"));
-var fs2 = __toESM(require("node:fs"));
-var path3 = __toESM(require("node:path"));
-function asRows(data) {
-  const examples = Array.isArray(data?.examples) ? data.examples : [];
-  const rows = [];
-  for (const entry of examples) {
-    const libraryName = String(entry?.library?.name ?? "Unknown");
-    const paths = Array.isArray(entry?.examples) ? entry.examples : [];
-    for (const p of paths) {
-      const fullPath = String(p ?? "");
-      if (!fullPath) continue;
-      rows.push({
-        library: libraryName,
-        example: path3.basename(fullPath),
-        fullPath
-      });
-    }
-  }
-  return rows;
-}
-function uniqueRows(rows) {
-  const seen = /* @__PURE__ */ new Set();
-  const out = [];
-  for (const r of rows) {
-    const k = `${r.library}::${r.fullPath}`;
-    if (seen.has(k)) continue;
-    seen.add(k);
-    out.push(r);
-  }
-  return out.sort((a, b) => {
-    const l = a.library.localeCompare(b.library);
-    if (l !== 0) return l;
-    return a.example.localeCompare(b.example);
-  });
-}
-var ExamplesPanel = class {
-  constructor(context, output) {
-    this.context = context;
-    this.output = output;
-  }
-  context;
-  output;
-  panel = null;
-  show(defaultFqbn) {
-    if (!this.panel) {
-      this.panel = vscode4.window.createWebviewPanel(
-        "arduinoMcp.examples",
-        "X-mpls",
-        vscode4.ViewColumn.Beside,
-        { enableScripts: true }
-      );
-      this.panel.onDidDispose(() => this.panel = null);
-      this.panel.webview.onDidReceiveMessage((msg) => void this.onMessage(msg, defaultFqbn));
-    } else {
-      this.panel.title = "X-mpls";
-      this.panel.reveal(vscode4.ViewColumn.Beside);
-    }
-    this.panel.webview.html = this.html();
-    void this.onMessage({ type: "list", library: "" }, defaultFqbn);
-  }
-  async listExamples(defaultFqbn) {
-    const argsBase = ["lib", "examples", "--json"];
-    this.output.appendLine(`$ arduino-cli ${argsBase.join(" ")}`);
-    const base = await runArduinoCli(argsBase);
-    if (!base.success) throw new Error(base.stderr || base.stdout || "Failed to list examples");
-    let rows = asRows(JSON.parse(base.stdout));
-    if (defaultFqbn) {
-      const argsBoard = ["lib", "examples", "--fqbn", defaultFqbn, "--json"];
-      this.output.appendLine(`$ arduino-cli ${argsBoard.join(" ")}`);
-      const b = await runArduinoCli(argsBoard);
-      if (b.success) rows = rows.concat(asRows(JSON.parse(b.stdout)));
-    }
-    const customLibPath = path3.join(os.homedir(), "Documents", "Arduino", "libraries", "AdvancedAnalog");
-    if (fs2.existsSync(customLibPath)) {
-      const exDir = path3.join(customLibPath, "examples");
-      if (fs2.existsSync(exDir)) {
-        try {
-          const subdirs = fs2.readdirSync(exDir, { withFileTypes: true }).filter(d => d.isDirectory());
-          for (const sd of subdirs) {
-            rows.push({ library: "Filtered analog", example: sd.name, fullPath: path3.join(exDir, sd.name) });
-          }
-        } catch (e) { }
-      }
-    }
-    return uniqueRows(rows);
-  }
-  async openExampleAsTab(examplePath) {
-    const dir = String(examplePath || "").trim();
-    if (!dir) return;
-    const name = path3.basename(dir);
-    const preferred = path3.join(dir, `${name}.ino`);
-    let inoFile = null;
-    if (fs2.existsSync(preferred)) {
-      inoFile = preferred;
-    } else {
-      try {
-        const files = fs2.readdirSync(dir).filter((f) => f.toLowerCase().endsWith(".ino"));
-        if (files.length > 0) inoFile = path3.join(dir, files[0]);
-      } catch {
-      }
-    }
-    if (!inoFile) {
-      vscode4.window.showWarningMessage("Arduino Grease: No .ino file found in this example.");
-      return;
-    }
-    const doc = await vscode4.workspace.openTextDocument(vscode4.Uri.file(inoFile));
-    await vscode4.window.showTextDocument(doc, { preview: false });
-  }
-  async onMessage(msg, defaultFqbn) {
-    if (!this.panel || !msg?.type) return;
-    if (msg.type === "list") {
-      try {
-        const rows = await this.listExamples(defaultFqbn);
-        this.panel.webview.postMessage({ type: "examples", rows });
-      } catch (e) {
-        this.panel.webview.postMessage({ type: "error", error: e instanceof Error ? e.message : String(e) });
-      }
-    } else if (msg.type === "openExample") {
-      await this.openExampleAsTab(String(msg.path ?? ""));
-    }
-  }
-  html() {
-    return `<!DOCTYPE html>
+</html>`}};var H=v(require("vscode")),te=v(require("node:fs")),Ft=v(require("node:os")),Q=v(require("node:path"));function ce(t){let e=Array.isArray(t?.examples)?t.examples:[],n=[];for(let r of e){let s=String(r?.library?.name??"Unknown"),o=Array.isArray(r?.examples)?r.examples:[];for(let l of o){let d=String(l??"");d&&n.push({library:s,example:Q.basename(d),fullPath:d})}}return n}function Qe(t){let e=new Set,n=[];for(let r of t){let s=`${r.library}::${r.fullPath}`;e.has(s)||(e.add(s),n.push(r))}return n.sort((r,s)=>{let o=r.library.localeCompare(s.library);return o!==0?o:r.example.localeCompare(s.example)})}var Ee=class{constructor(e,n){this.context=e;this.output=n}context;output;panel=null;show(e){this.panel?(this.panel.title="X-mpls",this.panel.reveal(H.ViewColumn.Beside)):(this.panel=H.window.createWebviewPanel("arduinoMcp.examples","X-mpls",H.ViewColumn.Beside,{enableScripts:!0}),this.panel.onDidDispose(()=>this.panel=null),this.panel.webview.onDidReceiveMessage(n=>{this.onMessage(n,e)})),this.panel.webview.html=this.html(),this.onMessage({type:"list",library:""},e)}async listExamples(e){let n=["lib","examples","--json"];this.output.appendLine(`$ arduino-cli ${n.join(" ")}`);let r=await y(n);if(!r.success)throw new Error(r.stderr||r.stdout||"Failed to list examples");let s=ce(JSON.parse(r.stdout));if(e){let l=["lib","examples","--fqbn",e,"--json"];this.output.appendLine(`$ arduino-cli ${l.join(" ")}`);let d=await y(l);d.success&&(s=s.concat(ce(JSON.parse(d.stdout))))}let o=Q.join(Ft.homedir(),"Documents","Arduino","libraries","AdvancedAnalog");if(te.existsSync(o)){let l=Q.join(o,"examples");if(te.existsSync(l))try{let d=te.readdirSync(l,{withFileTypes:!0}).filter(p=>p.isDirectory());for(let p of d)s.push({library:"Filtered analog",example:p.name,fullPath:Q.join(l,p.name)})}catch{}}return Qe(s)}async openExampleAsTab(e){let n=String(e||"").trim();if(!n)return;let r=Q.basename(n),s=Q.join(n,`${r}.ino`),o=null;if(te.existsSync(s))o=s;else try{let d=te.readdirSync(n).filter(p=>p.toLowerCase().endsWith(".ino"));d.length>0&&(o=Q.join(n,d[0]))}catch{}if(!o){H.window.showWarningMessage("Arduino Grease: No .ino file found in this example.");return}let l=await H.workspace.openTextDocument(H.Uri.file(o));await H.window.showTextDocument(l,{preview:!1})}async onMessage(e,n){if(!(!this.panel||!e?.type))if(e.type==="list")try{let r=await this.listExamples(n);this.panel.webview.postMessage({type:"examples",rows:r})}catch(r){this.panel.webview.postMessage({type:"error",error:r instanceof Error?r.message:String(r)})}else e.type==="openExample"&&await this.openExampleAsTab(String(e.path??""))}html(){return`<!DOCTYPE html>
 <html>
   <head>
     <meta charset="utf-8" />
@@ -1083,386 +304,232 @@ var ExamplesPanel = class {
       });
     </script>
   </body>
-</html>`;
-  }
-};
-
-// src/ui/managersPanel.ts (parseInstalledBoards retained; ManagersPanel webview class removed — sidebar tab is used instead)
-var vscode5 = __toESM(require("vscode"));
-function parseInstalledBoards(rawJson) {
-  const parsed = JSON.parse(rawJson);
-  const platforms = Array.isArray(parsed?.platforms) ? parsed.platforms : [];
-  const rows = [];
-  for (const p of platforms) {
-    const platformId = String(p?.id ?? "");
-    const version = String(p?.installed_version ?? "");
-    const releases = p?.releases ?? {};
-    const release = releases?.[version] ?? null;
-    const boards = Array.isArray(release?.boards) ? release.boards : [];
-    for (const b of boards) {
-      const name = String(b?.name ?? "").trim();
-      const fqbn = String(b?.fqbn ?? "").trim();
-      if (!name || !fqbn) continue;
-      rows.push({ name, fqbn, platform: platformId, version });
-    }
-  }
-  rows.sort((a, b) => a.name.localeCompare(b.name));
-  return rows;
-}
-function parseLibraries(rawJson) {
-  const parsed = JSON.parse(rawJson);
-  const libraries = Array.isArray(parsed?.installed_libraries) ? parsed.installed_libraries : Array.isArray(parsed?.libraries) ? parsed.libraries : [];
-  const out = libraries.map((l) => ({
-    name: String(l?.library?.name ?? l?.name ?? "").trim(),
-    version: String(l?.library?.version ?? l?.version ?? "").trim() || void 0,
-    author: String(l?.library?.author ?? l?.author ?? "").trim() || void 0,
-    sentence: String(l?.library?.sentence ?? l?.sentence ?? "").trim() || void 0
-  })).filter((x) => x.name.length > 0);
-  out.sort((a, b) => a.name.localeCompare(b.name));
-  return out;
-}
-// ManagersPanel webview class removed — the embedded sidebar managers tab (panel-managers) is the active UI.
-
-// src/ui/boardTemplatePanel.ts
-var vscode6 = __toESM(require("vscode"));
-var BoardTemplatePanel = class {
-  constructor(context) {
-    this.context = context;
-  }
-  context;
-  panel = null;
-  show(_args) {
-    if (!this.panel) {
-      this.panel = vscode6.window.createWebviewPanel(
-        "arduinoMcp.boardTemplate",
-        "Arduino Grease: AI Prompt Template",
-        vscode6.ViewColumn.Beside,
-        { enableScripts: true }
-      );
-      this.panel.onDidDispose(() => this.panel = null);
-      this.panel.webview.onDidReceiveMessage((msg) => void this.onMessage(msg));
-    } else {
-      this.panel.reveal(vscode6.ViewColumn.Beside);
-    }
-    this.panel.webview.html = this.html();
-  }
-  async onMessage(msg) {
-    if (!msg?.type) return;
-    if (msg.type === "copy") {
-      const text = String(msg.text ?? "");
-      await vscode6.env.clipboard.writeText(text);
-      vscode6.window.showInformationMessage("Arduino Grease: Copied prompt to clipboard.");
-    }
-  }
-  html() {
-    return `<!DOCTYPE html>
+</html>`}};var pe=v(require("vscode")),jt=v(require("node:os"));var $e=class{constructor(e){this.output=e}output;pollTimer=null;connectedPort=null;baudRate=9600;isConnected=!1;async start(e,n=9600){if(this.baudRate=n,!e){this.output.appendLine("Serial: no port selected.");return}await this.connect(e,this.baudRate),this.startPolling()}async stop(){this.isConnected&&(await Me(),this.isConnected=!1,this.output.appendLine("Serial disconnected"))}async handleConsoleCommand(e){let n=String(e??"").trim();if(!n)return;if(/^baud\s*=\s*\d+$/i.test(n)){let o=Number(n.split("=")[1]);if(!Number.isFinite(o)||o<=0){this.output.appendLine("Serial: invalid baud value.");return}this.baudRate=o,this.output.appendLine(`Serial baud set to ${o}`),this.connectedPort&&await this.connect(this.connectedPort,this.baudRate);return}if(/^clear$/i.test(n)){let l=(await de()).lines?.length??0;this.output.appendLine(`Serial buffer cleared (${l} lines dropped).`);return}if(/^disconnect$/i.test(n)){await this.stop();return}if(/^connect$/i.test(n)){if(!this.connectedPort){this.output.appendLine("Serial: no known port to connect.");return}await this.connect(this.connectedPort,this.baudRate);return}let r=n.match(/^send\s*=\s*"([\s\S]*)"$/i),s=n.match(/^send\s*=\s*(.+)$/i);if(r||s){let o=r?r[1]:s?.[1]??"";if(!this.isConnected){this.output.appendLine("Serial: not connected.");return}await Bt({data:o}),this.output.appendLine(`[serial:tx] ${o}`);return}this.output.appendLine(`Serial: unknown command "${n}".`)}async connect(e,n){try{await Ae({path:e,baudRate:n})}catch(r){let s=r instanceof Error?r.message:String(r);(s.includes("Permission denied")||s.includes("EACCES")||s.includes("EPERM"))&&jt.platform()==="linux"?pe.window.showErrorMessage(`Serial: Permission denied on ${e}. On Linux, run: sudo usermod -a -G dialout $USER \u2014 then log out and back in.`,"Copy Command").then(l=>{l==="Copy Command"&&pe.env.clipboard.writeText("sudo usermod -a -G dialout $USER")}):pe.window.showErrorMessage(`Serial: Failed to open ${e}: ${s}`),this.output.appendLine(`Serial open failed: ${s}`);return}this.connectedPort=e,this.baudRate=n,this.isConnected=!0,this.output.appendLine(`Serial connected: ${e} @ ${n}`)}startPolling(){this.pollTimer||(this.pollTimer=setInterval(()=>{this.isConnected&&(async()=>{try{let e=await de();for(let n of e.lines??[])this.output.appendLine(`[serial] ${n}`)}catch{}})()},250))}};var W=v(require("vscode")),Ke=v(require("node:os"));function xr(t){let e=t.match(/-?\d+(?:\.\d+)?/g);if(!e)return[];let n=[];for(let r of e){let s=Number(r);Number.isFinite(s)&&n.push(s)}return n}function Sr(t){let e=[],n=/([A-Za-z_]\w*)\s*=\s*(-?\d+(?:\.\d+)?)/g,r;for(;(r=n.exec(String(t)))!==null;)e.push({label:r[1],value:Number(r[2])});return e.length>0?{labels:e.map(s=>s.label),numbers:e.map(s=>s.value)}:{labels:[],numbers:xr(t)}}var Te=class{constructor(e){this.output=e}output;panel=null;pollTimer=null;isConnected=!1;show(e,n=!0){this.panel||(this.panel=W.window.createWebviewPanel("arduinoMcp.serialPlotter","Arduino Grease: Plttr",W.ViewColumn.Beside,{enableScripts:!0}),this.panel.onDidDispose(()=>this.dispose()),this.panel.webview.onDidReceiveMessage(r=>{this.onMessage(r)})),this.panel.title="Arduino Grease: Plttr",this.panel.reveal(W.ViewColumn.Beside),this.panel.webview.html=this.html(e),this.startPolling(),this.postStatus(),n&&e&&!this.isConnected&&this.connect(e,9600)}dispose(){this.panel=null,this.pollTimer&&clearInterval(this.pollTimer),this.pollTimer=null}async connect(e,n){try{await Ae({path:e,baudRate:n})}catch(r){let s=r instanceof Error?r.message:String(r);(s.includes("Permission denied")||s.includes("EACCES")||s.includes("EPERM"))&&Ke.platform()==="linux"?W.window.showErrorMessage(`Serial: Permission denied on ${e}. On Linux, run: sudo usermod -a -G dialout $USER \u2014 then log out and back in.`,"Copy Command").then(l=>{l==="Copy Command"&&W.env.clipboard.writeText("sudo usermod -a -G dialout $USER")}):W.window.showErrorMessage(`Serial: Failed to open ${e}: ${s}`),this.output.appendLine(`Serial open failed (plotter): ${s}`);return}this.output.appendLine(`Serial connected (plotter): ${e} @ ${n}`),this.isConnected=!0,this.postStatus()}startPolling(){this.pollTimer||(this.pollTimer=setInterval(()=>{this.panel&&this.isConnected&&(async()=>{try{let e=await de(),n=[],r=[];for(let s of e.lines??[]){let o=Sr(String(s));o.numbers.length>0&&(n.push(o.numbers),r.push(o.labels))}n.length&&this.panel?.webview.postMessage({type:"points",points:n,labels:r}),this.panel?.webview.postMessage({type:"status",status:e.serial})}catch{this.panel?.webview.postMessage({type:"status",status:{isOpen:!1}})}})()},180))}postStatus(){this.panel&&this.panel.webview.postMessage({type:"status",status:{isOpen:this.isConnected}})}async onMessage(e){if(e?.type)try{if(e.type==="toggle"){let n=String(e.path||""),r=Number(e.baudRate||9600);this.isConnected?(await Me(),this.output.appendLine("Serial disconnected (plotter)"),this.isConnected=!1):await this.connect(n,r),this.postStatus()}else e.type==="clear"&&this.panel&&this.panel.webview.postMessage({type:"clear"})}catch(n){let r=n instanceof Error?n.message:String(n);this.output.appendLine(`Serial plotter error: ${r}`),W.window.showErrorMessage(`Arduino Grease Plotter: ${r}`),this.postStatus()}}html(e){let n=e?e.replaceAll('"',"&quot;"):"";return`<!DOCTYPE html>
 <html>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <style>
       :root {
-        --bg: #1f1f1f;
-        --panel: #2b2b2b;
-        --ink: #e6e6e6;
-        --muted: #a6a6a6;
-        --stroke: #3a3a3a;
+        --bg: #050806;
+        --panel: #0d1611;
+        --ink: #b5ffc8;
+        --muted: #76bf8b;
+        --stroke: #2d4d3a;
+        --trace: #7dff9e;
       }
-      body { margin: 0; padding: 16px; background: var(--bg); color: var(--ink); font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; }
-      .card { border: 2px solid var(--stroke); background: var(--panel); padding: 12px; border-radius: 12px; box-shadow: 6px 6px 0 #000; margin-bottom: 12px; }
-      .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-      @media (max-width: 980px) { .grid { grid-template-columns: 1fr; } }
-      label { font-size: 12px; color: var(--muted); }
-      textarea, button {
-        background: #171717;
+      body { margin: 0; padding: 12px; background: radial-gradient(circle at 20% 0%, #0c120f, #050806 65%); color: var(--ink); font-family: Consolas, Menlo, Monaco, "Courier New", monospace; font-size:11px; }
+      .card { border: 1px solid var(--stroke); background: var(--panel); padding: 8px; border-radius: 8px; box-shadow: inset 0 0 20px rgba(61, 255, 117, 0.08); }
+      .row { display: flex; gap: 8px; align-items: flex-end; flex-wrap: nowrap; }
+      label { font-size: 10px; color: var(--muted); }
+      input, button {
+        background: #07100b;
         color: var(--ink);
-        border: 2px solid var(--stroke);
-        border-radius: 10px;
-        padding: 10px 10px;
-        font-size: 13px;
+        border: 1px solid var(--stroke);
+        border-radius: 6px;
+        padding: 6px 7px;
+        font-size: 11px;
+        font-family: Consolas, Menlo, Monaco, "Courier New", monospace;
       }
-      textarea { width: 100%; min-height: 120px; resize: vertical; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: 12px; line-height: 1.35; }
-      button { cursor: pointer; min-height: 44px; }
-      .row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
-      .muted { color: var(--muted); font-size: 12px; }
+      input { min-width: 180px; }
+      #baud { min-width: 90px; }
+      a { color: var(--ink); cursor: pointer; font-family: Consolas, Menlo, Monaco, "Courier New", monospace; font-size: 11px; text-decoration: none; }
+      a:hover { text-decoration: underline; }
+      .status { font-size: 10px; color: var(--muted); margin-left: auto; }
+      .cmdbtn{ color:#d8ffd8; cursor:pointer; position:relative; display:inline; }
+      .cmdbtn::after{
+        content: attr(data-tip);
+        position:absolute; left:0; bottom:120%;
+        background:#0a110a; color:#e5ffe5; border:1px solid #335233; border-radius:4px;
+        padding:2px 4px; font-size:10px; opacity:0; pointer-events:none; transition:opacity .12s ease; white-space:nowrap;
+      }
+      .cmdbtn:hover::after{ opacity:1; }
+      canvas { width: 100%; height: calc(100vh - 162px); border: 1px solid var(--stroke); border-radius: 8px; background: #020502; box-shadow: inset 0 0 35px rgba(0, 255, 90, 0.08); }
+      #legend { display:flex; gap:10px; flex-wrap:wrap; align-items:center; padding:5px 8px; margin-top:4px; border:1px solid var(--stroke); border-radius:6px; background:var(--panel); min-height:26px; font-size:10px; }
+      .leg-item { cursor:pointer; display:flex; align-items:center; gap:3px; user-select:none; }
+      .leg-item:hover { text-decoration:underline; }
+      .leg-bg { cursor:pointer; color:var(--muted); border:1px solid var(--stroke); padding:1px 6px; border-radius:3px; font-size:10px; margin-left:auto; }
+      .leg-bg:hover { color:var(--ink); }
     </style>
   </head>
   <body>
-    <div class="card">
-      <div class="muted">Answer these questions to structure your prompt</div>
-    </div>
-
-    <div class="grid">
-      <div class="card">
-        <label>Wires, motors and sensors</label>
-        <textarea id="wires" placeholder="Example: Left motor on pins 5/6 (PWM), right motor on pins 9/10, ultrasonic trig=2 echo=3, LDR=A0..."></textarea>
-      </div>
-      <div class="card">
-        <label>Other modules installed</label>
-        <textarea id="modules" placeholder="Example: IMU (MPU6050) on I2C, OLED 128x64, BLE module..."></textarea>
-      </div>
-      <div class="card">
-        <label>Robot structure</label>
-        <textarea id="robot" placeholder="Example: 2-wheel differential drive, geared DC motors, chassis size, power source..."></textarea>
-      </div>
-      <div class="card">
-        <label>Expected behavior</label>
-        <textarea id="behavior" placeholder="Example: Follow wall, avoid obstacles, blink status LED, publish sensor data..."></textarea>
-      </div>
-    </div>
-
-    <div class="card">
+    <div class="card" style="margin-bottom:8px">
       <div class="row">
-        <button id="generate">Generate prompt</button>
-        <button id="copy">Copy</button>
+        <div>
+          <label>Port</label><br/>
+          <input id="port" placeholder="${Ke.platform()==="win32"?"COM1":"/dev/cu.usbmodem..."}" value="${n}"/>
+        </div>
+        <div>
+          <label>Baud</label><br/>
+          <input id="baud" value="9600"/>
+        </div>
+        <a class="cmdbtn" data-tip="start/stop" id="toggle" href="#" onclick="event.preventDefault()">||S||</a>
+        <a class="cmdbtn" data-tip="clear" id="clear" href="#" onclick="event.preventDefault()">||C||</a>
+        <div class="status" id="status"></div>
       </div>
-      <textarea id="out" style="min-height: 220px" placeholder="Generated prompt will appear here..."></textarea>
     </div>
+
+    <canvas id="canvas" width="1500" height="760"></canvas>
+    <div id="legend"><span class="leg-bg" onclick="toggleBg()">bg</span></div>
 
     <script>
       const vscode = acquireVsCodeApi();
       const $ = (id) => document.getElementById(id);
+      const canvas = $("canvas");
+      const ctx = canvas.getContext("2d");
 
-      function addSection(lines, title, value) {
-        const text = String(value || "").trim();
-        if (!text) return;
-        lines.push(title + ":");
-        lines.push(text);
-        lines.push("");
+      const maxPoints = 650;
+      const series = [];
+      let yMin = -0.2;
+      let yMax = 1.2;
+
+      const PLOT_COLORS = ["#7dff9e","#ff7d9e","#9e7dff","#ffff7d","#7dffff","#ffb47d","#ff9e7d","#7db4ff","#ff7dff","#d4ff7d"];
+      let seriesColors = [...PLOT_COLORS];
+      let seriesLabels = [];
+      let numSeriesTotal = 0;
+      let plotBgDark = true;
+
+      function setStatus(s) {
+        if (!s) return;
+        const connected = !!s.isOpen;
+        $("status").textContent = connected ? (" " + s.path + " @ " + s.baudRate) : "Disconnected";
+        $("toggle").textContent = connected ? "||S|| \u2588running " : "||S|| \u2588stopped ";
+        $("toggle").style.color = connected ? "#49c06b" : "#593b3bff";
       }
 
-      function generate() {
-        const wires = $("wires").value;
-        const modules = $("modules").value;
-        const robot = $("robot").value;
-        const behavior = $("behavior").value;
-
-        const lines = ["Arduino prompt context", ""];
-        addSection(lines, "Wires, motors and sensors", wires);
-        addSection(lines, "Other modules installed", modules);
-        addSection(lines, "Robot structure", robot);
-        addSection(lines, "Expected behavior", behavior);
-
-        while (lines.length > 0 && lines[lines.length - 1] === "") {
-          lines.pop();
+      function drawGrid(w, h) {
+        ctx.strokeStyle = plotBgDark ? "rgba(62,255,120,0.12)" : "rgba(0,80,30,0.12)";
+        ctx.lineWidth = 1;
+        for (let x = 50; x < w - 20; x += 40) {
+          ctx.beginPath(); ctx.moveTo(x, 20); ctx.lineTo(x, h - 36); ctx.stroke();
         }
-
-        $("out").value = lines.join("\\n");
+        for (let y = 20; y < h - 36; y += 32) {
+          ctx.beginPath(); ctx.moveTo(50, y); ctx.lineTo(w - 20, y); ctx.stroke();
+        }
       }
 
-      $("generate").addEventListener("click", generate);
-      $("copy").addEventListener("click", () => vscode.postMessage({ type: "copy", text: $("out").value }));
+      function draw() {
+        const w = canvas.width;
+        const h = canvas.height;
+        ctx.fillStyle = plotBgDark ? "#020502" : "#f5f5f5";
+        ctx.fillRect(0, 0, w, h);
+        drawGrid(w, h);
+
+        ctx.strokeStyle = plotBgDark ? "rgba(80,255,140,0.35)" : "rgba(0,100,40,0.4)";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(50, 20);
+        ctx.lineTo(50, h - 36);
+        ctx.lineTo(w - 20, h - 36);
+        ctx.stroke();
+
+        if (series.length < 2) return;
+
+        const x0 = 50, y0 = h - 36, x1 = w - 20, y1 = 20;
+        const plotW = x1 - x0;
+        const plotH = y0 - y1;
+
+        ctx.shadowColor = plotBgDark ? "rgba(140,255,170,0.55)" : "rgba(0,80,30,0.4)";
+        ctx.shadowBlur = 10;
+        ctx.lineWidth = 2.2;
+
+        const numSeries = series.length > 0 ? series[series.length - 1].length : 0;
+        for (let s = 0; s < numSeries; s++) {
+          const col = seriesColors[s] !== undefined ? seriesColors[s] : PLOT_COLORS[s % PLOT_COLORS.length];
+          ctx.strokeStyle = col;
+          ctx.beginPath();
+          for (let i = 0; i < series.length; i++) {
+            if (s >= series[i].length) continue;
+            const x = x0 + (i / (maxPoints - 1)) * plotW;
+            const v = series[i][s];
+            const y = y0 - ((v - yMin) / (yMax - yMin)) * plotH;
+            if (i === 0 || s >= series[i-1].length) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+          }
+          ctx.stroke();
+        }
+        ctx.shadowBlur = 0;
+
+        ctx.fillStyle = plotBgDark ? "#8de0a0" : "#006400";
+        ctx.font = "11px Consolas, Menlo, Monaco, monospace";
+        ctx.fillText("min " + yMin.toFixed(2), x0, 14);
+        ctx.fillText("max " + yMax.toFixed(2), x0 + 130, 14);
+        const lastVals = series[series.length - 1] || [];
+        ctx.fillText("last " + lastVals.map(v => v.toFixed(3)).join(", "), x0 + 260, 14);
+      }
+
+      function updateLegend() {
+        const legend = $("legend");
+        if (!legend) return;
+        let html = '';
+        for (let i = 0; i < numSeriesTotal; i++) {
+          if (seriesColors[i] === undefined) seriesColors[i] = PLOT_COLORS[i % PLOT_COLORS.length];
+          const col = seriesColors[i];
+          const label = seriesLabels[i] || ("ch" + (i + 1));
+          html += '<span class="leg-item" style="color:' + col + '" onclick="cycleSeriesColor(' + i + ')">\u2588 ' + label + '</span>';
+        }
+        html += '<span class="leg-bg" onclick="toggleBg()">bg</span>';
+        legend.innerHTML = html;
+      }
+
+      function cycleSeriesColor(i) {
+        const idx = PLOT_COLORS.indexOf(seriesColors[i]);
+        seriesColors[i] = PLOT_COLORS[(idx + 1) % PLOT_COLORS.length];
+        updateLegend();
+        draw();
+      }
+
+      function toggleBg() {
+        plotBgDark = !plotBgDark;
+        canvas.style.background = plotBgDark ? "#020502" : "#f5f5f5";
+        draw();
+      }
+
+      $("toggle").addEventListener("click", () => {
+        vscode.postMessage({ type: "toggle", path: $("port").value, baudRate: Number($("baud").value || 9600) });
+      });
+      $("clear").addEventListener("click", () => vscode.postMessage({ type: "clear" }));
+
+      window.addEventListener("message", (event) => {
+        const msg = event.data;
+        if (msg.type === "points") {
+          const labelBatch = Array.isArray(msg.labels) ? msg.labels : [];
+          let labelsUpdated = false;
+          for (let pi = 0; pi < msg.points.length; pi++) {
+            const p = msg.points[pi];
+            series.push(p);
+            if (series.length > maxPoints) series.shift();
+            for (const val of p) {
+              if (val > yMax) yMax = val + 0.1;
+              if (val < yMin) yMin = val - 0.1;
+            }
+            if (p.length > numSeriesTotal) { numSeriesTotal = p.length; labelsUpdated = true; }
+            const rowLabels = labelBatch[pi];
+            if (rowLabels && rowLabels.length > 0) {
+              for (let li = 0; li < rowLabels.length; li++) {
+                if (seriesLabels[li] !== rowLabels[li]) { seriesLabels[li] = rowLabels[li]; labelsUpdated = true; }
+              }
+            }
+          }
+          if (labelsUpdated) updateLegend();
+          draw();
+        } else if (msg.type === "status") {
+          setStatus(msg.status);
+        } else if (msg.type === "clear") {
+          series.length = 0;
+          seriesLabels.length = 0;
+          seriesColors = [...PLOT_COLORS];
+          numSeriesTotal = 0;
+          yMin = -0.2;
+          yMax = 1.2;
+          updateLegend();
+          draw();
+        }
+      });
+
+      draw();
     </script>
   </body>
-</html>`;
-  }
-};
-
-// src/views/toolbarView.ts
-var vscode7 = __toESM(require("vscode"));
-var ArduinoToolbarViewProvider = class {
-  constructor(context, output, actions) {
-    this.context = context;
-    this.output = output;
-    this.actions = actions;
-  }
-  context;
-  output;
-  actions;
-  static viewType = "arduinoMcp.toolbar";
-  view = null;
-  state = {
-    port: null,
-    fqbn: null,
-    connectedPorts: [],
-    serverRunning: false,
-    serverHealthy: false,
-    lastScanAtMs: null,
-    serialActive: false
-  };
-  setState(next) {
-    this.state = next;
-    this.postState();
-  }
-  resolveWebviewView(view) {
-    this.view = view;
-    view.webview.options = { enableScripts: true, localResourceRoots: [vscode7.Uri.joinPath(this.context.extensionUri, "resources")] };
-    view.webview.html = this.html(view.webview);
-    view.webview.onDidReceiveMessage((msg) => void this.onMessage(msg));
-    this.postState();
-  }
-  postState() {
-    this.view?.webview.postMessage({ type: "state", state: this.state });
-  }
-  async onMessage(msg) {
-    if (!msg?.type) return;
-    if (msg.type === "cmd") {
-      const command = String(msg.command ?? "");
-      if (!command) return;
-      await vscode7.commands.executeCommand(command);
-    } else if (msg.type === "list") {
-      try {
-        const argsBase = ["lib", "examples", "--json"];
-        const base = await runArduinoCli(argsBase);
-        if (!base.success) throw new Error(base.stderr || base.stdout || "Failed to list examples");
-        let rows = asRows(JSON.parse(base.stdout));
-        const fqbn = this.state.fqbn;
-        if (fqbn) {
-          const b = await runArduinoCli(["lib", "examples", "--fqbn", fqbn, "--json"]);
-          if (b.success) rows = rows.concat(asRows(JSON.parse(b.stdout)));
-        }
-        this.view?.webview.postMessage({ type: "examples", rows: uniqueRows(rows) });
-      } catch (e) {
-        this.view?.webview.postMessage({ type: "exError", error: e instanceof Error ? e.message : String(e) });
-      }
-    } else if (msg.type === "openExample") {
-      const dir = String(msg.path ?? "").trim();
-      if (!dir) return;
-      const name = path3.basename(dir);
-      const preferred = path3.join(dir, name + ".ino");
-      let inoFile = null;
-      if (fs2.existsSync(preferred)) {
-        inoFile = preferred;
-      } else {
-        try {
-          const files = fs2.readdirSync(dir).filter(f => f.toLowerCase().endsWith(".ino"));
-          if (files.length > 0) inoFile = path3.join(dir, files[0]);
-        } catch { }
-      }
-      if (!inoFile) { vscode7.window.showWarningMessage("Arduino Grease: No .ino file found in this example."); return; }
-      const doc = await vscode7.workspace.openTextDocument(vscode7.Uri.file(inoFile));
-      await vscode7.window.showTextDocument(doc, { preview: false });
-      await vscode7.commands.executeCommand("workbench.action.files.setActiveEditorReadonlyInSession");
-      vscode7.window.showInformationMessage(
-        "This is a read-only example. Save a copy to edit it.",
-        "Save As New Sketch"
-      ).then((choice) => {
-        if (choice === "Save As New Sketch") vscode7.commands.executeCommand("workbench.action.files.saveAs");
-      });
-    } else {
-      const post = (payload) => void this.view?.webview.postMessage(payload);
-      try {
-        if (msg.type === "updateIndexes") {
-          this.output.appendLine("[Mngrs] Updating board and library indexes...");
-          const res1 = await runArduinoCli(["update"]);
-          this.output.appendLine(res1.stdout);
-          this.output.appendLine(res1.stderr);
-          const boards = await runArduinoCli(["core", "list", "--json"]);
-          if (boards.success) {
-            const rows = parseInstalledBoards(boards.stdout);
-            post({ type: "boards", rows });
-            this.output.appendLine(`[Mngrs] Loaded ${rows.length} installed boards.`);
-          } else {
-            post({ type: "mgrError", error: "Failed. See Output > Arduino Grease." });
-          }
-        } else if (msg.type === "boardSearch") {
-          const boards = await runArduinoCli(["core", "list", "--json"]);
-          if (!boards.success) {
-            post({ type: "mgrError", error: "Failed. See Output > Arduino Grease." });
-            return;
-          }
-          post({ type: "boards", rows: parseInstalledBoards(boards.stdout), query: String(msg.query ?? "") });
-        } else if (msg.type === "chooseTarget") {
-          const fqbn = String(msg.fqbn ?? "").trim();
-          if (!fqbn) {
-            post({ type: "mgrError", error: "Select a board first." });
-            return;
-          }
-          this.output.appendLine(`[Mngrs] Choosing target ${fqbn}...`);
-          await this.actions.chooseTarget(fqbn);
-        } else if (msg.type === "uploadFirmwareToTarget") {
-          const fqbn = String(msg.fqbn ?? "").trim();
-          if (!fqbn) {
-            post({ type: "mgrError", error: "Select a board first." });
-            return;
-          }
-          this.output.appendLine(`[Mngrs] Upload firmware to target ${fqbn}...`);
-          await this.actions.uploadFirmwareToTarget(fqbn);
-        } else if (msg.type === "libList") {
-          this.output.appendLine("[Mngrs] Updating library index...");
-          const upd = await runArduinoCli(["lib", "update-index"]);
-          this.output.appendLine(upd.stdout);
-          this.output.appendLine(upd.stderr);
-          const res = await runArduinoCli(["lib", "list", "--json"]);
-          if (!res.success) {
-            post({ type: "mgrError", error: res.stderr || res.stdout });
-            return;
-          }
-          post({ type: "libraries", rows: parseLibraries(res.stdout) });
-        } else if (msg.type === "libSearch") {
-          const q = String(msg.query ?? "").trim();
-          const res = await runArduinoCli(["lib", "search", q, "--json"]);
-          if (!res.success) {
-            post({ type: "mgrError", error: res.stderr || res.stdout });
-            return;
-          }
-          post({ type: "libraries", rows: parseLibraries(res.stdout) });
-        } else if (msg.type === "libInstallSelected") {
-          const name = String(msg.name ?? "").trim();
-          if (!name) {
-            post({ type: "mgrError", error: "Select a library first." });
-            return;
-          }
-          this.output.appendLine(`[Mngrs] Installing library ${name}...`);
-          const res = await runArduinoCli(["lib", "install", name]);
-          this.output.appendLine(res.stdout);
-          this.output.appendLine(res.stderr);
-          if (!res.success) {
-            post({ type: "mgrError", error: res.stderr || res.stdout });
-          } else {
-            vscode7.window.showInformationMessage(`Arduino Grease: Library ${name} installed.`);
-          }
-        } else if (msg.type === "toggleSerial") {
-          await vscode7.commands.executeCommand("arduinoMcp.toggleSerial");
-        } else if (msg.type === "libInstallGit") {
-          const input = String(msg.input ?? "").trim();
-          if (!input) return;
-          this.output.appendLine(`[Mngrs] Installing library from Github: ${input}...`);
-          const url = `https://github.com/${input}.git`;
-          const res = await runArduinoCli(["lib", "install", "--git-url", url]);
-          this.output.appendLine(res.stdout);
-          this.output.appendLine(res.stderr);
-          if (!res.success) {
-            post({ type: "mgrError", error: res.stderr || res.stdout });
-          } else {
-            vscode7.window.showInformationMessage(`Arduino Grease: Library ${input} installed.`);
-          }
-        } else if (msg.type === "boardCatalogInstall") {
-          const entry = msg.entry;
-          if (!entry?.installCommand) { post({ type: "mgrError", error: "Invalid board entry." }); return; }
-          this.output.appendLine(`[Mngrs] Installing board platform: ${entry.name}...`);
-          if (entry.url) {
-            const addUrl = await runArduinoCli(["config", "add", "board_manager.additional_urls", entry.url]);
-            this.output.appendLine(addUrl.stdout);
-            this.output.appendLine(addUrl.stderr);
-            await runArduinoCli(["update"]);
-          }
-          const resCore = await runArduinoCli(["core", "install", entry.installCommand]);
-          this.output.appendLine(resCore.stdout);
-          this.output.appendLine(resCore.stderr);
-          if (!resCore.success) {
-            post({ type: "mgrError", error: resCore.stderr || resCore.stdout });
-          } else {
-            vscode7.window.showInformationMessage(`Arduino Grease: ${entry.name} installed.`);
-            const boards2 = await runArduinoCli(["core", "list", "--json"]);
-            if (boards2.success) post({ type: "boards", rows: parseInstalledBoards(boards2.stdout) });
-          }
-        } else if (msg.type === "serialOff") {
-          await this.actions.serialOff();
-        } else if (msg.type === "cycleAccent") {
-          const color = String(msg.color ?? "#007ACC");
-          await this.actions.cycleAccent(color);
-        }
-      } catch (e) {
-        const err = e instanceof Error ? e.message : String(e);
-        this.output.appendLine(`[Mngrs] Error: ${err}`);
-        post({ type: "mgrError", error: err });
-      }
-    }
-  }
-  html(webview) {
-    const iconUri = webview.asWebviewUri(vscode7.Uri.joinPath(this.context.extensionUri, "resources", "icon.png"));
-    return `<!DOCTYPE html>
+</html>`}};var T=v(require("vscode")),Ie=v(require("node:fs")),ue=v(require("node:path"));function Be(t){let e=JSON.parse(t),n=Array.isArray(e?.platforms)?e.platforms:[],r=[];for(let s of n){let o=String(s?.id??""),l=String(s?.installed_version??""),p=(s?.releases??{})?.[l]??null,b=Array.isArray(p?.boards)?p.boards:[];for(let A of b){let M=String(A?.name??"").trim(),P=String(A?.fqbn??"").trim();!M||!P||r.push({name:M,fqbn:P,platform:o,version:l})}}return r.sort((s,o)=>s.name.localeCompare(o.name)),r}function Ye(t){let e=JSON.parse(t),r=(Array.isArray(e?.installed_libraries)?e.installed_libraries:Array.isArray(e?.libraries)?e.libraries:[]).map(s=>({name:String(s?.library?.name??s?.name??"").trim(),version:String(s?.library?.version??s?.version??"").trim()||void 0,author:String(s?.library?.author??s?.author??"").trim()||void 0,sentence:String(s?.library?.sentence??s?.sentence??"").trim()||void 0})).filter(s=>s.name.length>0);return r.sort((s,o)=>s.name.localeCompare(o.name)),r}var me=class{constructor(e,n,r){this.context=e;this.output=n;this.actions=r}context;output;actions;static viewType="arduinoMcp.toolbar";view=null;state={port:null,fqbn:null,connectedPorts:[],serverRunning:!1,serverHealthy:!1,lastScanAtMs:null,serialActive:!1};setState(e){this.state=e,this.postState()}resolveWebviewView(e){this.view=e,e.webview.options={enableScripts:!0,localResourceRoots:[T.Uri.joinPath(this.context.extensionUri,"resources")]},e.webview.html=this.html(e.webview),e.webview.onDidReceiveMessage(n=>{this.onMessage(n)}),this.postState()}postState(){this.view?.webview.postMessage({type:"state",state:this.state})}async onMessage(e){if(!e?.type)return;if(e.type==="cmd"){let r=String(e.command??"");if(!r)return;await T.commands.executeCommand(r);return}if(e.type==="list"){try{let s=await y(["lib","examples","--json"]);if(!s.success)throw new Error(s.stderr||s.stdout||"Failed to list examples");let o=ce(JSON.parse(s.stdout)),l=this.state.fqbn;if(l){let d=await y(["lib","examples","--fqbn",l,"--json"]);d.success&&(o=o.concat(ce(JSON.parse(d.stdout))))}this.view?.webview.postMessage({type:"examples",rows:Qe(o)})}catch(r){this.view?.webview.postMessage({type:"exError",error:r instanceof Error?r.message:String(r)})}return}if(e.type==="openExample"){let r=String(e.path??"").trim();if(!r)return;let s=ue.basename(r),o=ue.join(r,s+".ino"),l=null;if(Ie.existsSync(o))l=o;else try{let p=Ie.readdirSync(r).filter(b=>b.toLowerCase().endsWith(".ino"));p.length>0&&(l=ue.join(r,p[0]))}catch{}if(!l){T.window.showWarningMessage("Arduino Grease: No .ino file found in this example.");return}let d=await T.workspace.openTextDocument(T.Uri.file(l));await T.window.showTextDocument(d,{preview:!1}),await T.commands.executeCommand("workbench.action.files.setActiveEditorReadonlyInSession"),T.window.showInformationMessage("This is a read-only example. Save a copy to edit it.","Save As New Sketch").then(p=>{p==="Save As New Sketch"&&T.commands.executeCommand("workbench.action.files.saveAs")});return}let n=r=>{this.view?.webview.postMessage(r)};try{if(e.type==="updateIndexes"){this.output.appendLine("[Mngrs] Updating board and library indexes...");let r=await y(["update"]);this.output.appendLine(r.stdout),this.output.appendLine(r.stderr);let s=await y(["core","list","--json"]);if(s.success){let o=Be(s.stdout);n({type:"boards",rows:o}),this.output.appendLine(`[Mngrs] Loaded ${o.length} installed boards.`)}else n({type:"mgrError",error:"Failed. See Output > Arduino Grease."})}else if(e.type==="boardSearch"){let r=await y(["core","list","--json"]);if(!r.success){n({type:"mgrError",error:"Failed. See Output > Arduino Grease."});return}n({type:"boards",rows:Be(r.stdout),query:String(e.query??"")})}else if(e.type==="chooseTarget"){let r=String(e.fqbn??"").trim();if(!r){n({type:"mgrError",error:"Select a board first."});return}this.output.appendLine(`[Mngrs] Choosing target ${r}...`),await this.actions.chooseTarget(r)}else if(e.type==="uploadFirmwareToTarget"){let r=String(e.fqbn??"").trim();if(!r){n({type:"mgrError",error:"Select a board first."});return}this.output.appendLine(`[Mngrs] Upload firmware to target ${r}...`),await this.actions.uploadFirmwareToTarget(r)}else if(e.type==="libList"){this.output.appendLine("[Mngrs] Updating library index...");let r=await y(["lib","update-index"]);this.output.appendLine(r.stdout),this.output.appendLine(r.stderr);let s=await y(["lib","list","--json"]);if(!s.success){n({type:"mgrError",error:s.stderr||s.stdout});return}n({type:"libraries",rows:Ye(s.stdout)})}else if(e.type==="libSearch"){let r=String(e.query??"").trim(),s=await y(["lib","search",r,"--json"]);if(!s.success){n({type:"mgrError",error:s.stderr||s.stdout});return}n({type:"libraries",rows:Ye(s.stdout)})}else if(e.type==="libInstallSelected"){let r=String(e.name??"").trim();if(!r){n({type:"mgrError",error:"Select a library first."});return}this.output.appendLine(`[Mngrs] Installing library ${r}...`);let s=await y(["lib","install",r]);this.output.appendLine(s.stdout),this.output.appendLine(s.stderr),s.success?(T.window.showInformationMessage(`Arduino Grease: Library ${r} installed.`),this.actions.onLibraryInstalled&&await this.actions.onLibraryInstalled()):n({type:"mgrError",error:s.stderr||s.stdout})}else if(e.type==="toggleSerial")await T.commands.executeCommand("arduinoMcp.toggleSerial");else if(e.type==="libInstallGit"){let r=String(e.input??"").trim();if(!r)return;this.output.appendLine(`[Mngrs] Installing library from Github: ${r}...`);let s=`https://github.com/${r}.git`,o=await y(["lib","install","--git-url",s]);this.output.appendLine(o.stdout),this.output.appendLine(o.stderr),o.success?(T.window.showInformationMessage(`Arduino Grease: Library ${r} installed.`),this.actions.onLibraryInstalled&&await this.actions.onLibraryInstalled()):n({type:"mgrError",error:o.stderr||o.stdout})}else if(e.type==="boardCatalogInstall"){let r=e.entry;if(!r?.installCommand){n({type:"mgrError",error:"Invalid board entry."});return}if(this.output.appendLine(`[Mngrs] Installing board platform: ${r.name}...`),r.url){let o=await y(["config","add","board_manager.additional_urls",r.url]);this.output.appendLine(o.stdout),this.output.appendLine(o.stderr),await y(["update"])}let s=await y(["core","install",r.installCommand]);if(this.output.appendLine(s.stdout),this.output.appendLine(s.stderr),!s.success)n({type:"mgrError",error:s.stderr||s.stdout});else{T.window.showInformationMessage(`Arduino Grease: ${r.name} installed.`);let o=await y(["core","list","--json"]);o.success&&n({type:"boards",rows:Be(o.stdout)})}}else if(e.type==="serialOff")await this.actions.serialOff();else if(e.type==="cycleAccent"){let r=String(e.color??"#007ACC");await this.actions.cycleAccent(r)}}catch(r){let s=r instanceof Error?r.message:String(r);this.output.appendLine(`[Mngrs] Error: ${s}`),n({type:"mgrError",error:s})}}html(e){return`<!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8">
@@ -1545,7 +612,7 @@ var ArduinoToolbarViewProvider = class {
           </div>
         </div>
         <div class="logo-area">
-          <img class="logo-img" id="logoImg" src="${iconUri}" draggable="false" />
+          <img class="logo-img" id="logoImg" src="${e.asWebviewUri(T.Uri.joinPath(this.context.extensionUri,"resources","icon.png"))}" draggable="false" />
         </div>
       </div>
 
@@ -1613,13 +680,13 @@ var ArduinoToolbarViewProvider = class {
         <div class="mgr-section">
           <div class="mgr-card" style="padding: 10px; font-size: 10px; line-height: 1.4; color: var(--muted);">
             <p>Please stretch your panel and read this! Important! </p>
-            <br> 
+            <br>
             <p> Your AI Agent needs greasing and structure!</p>
-            <p style="margin-top: 8px;">If your AI Tether is active and "arduino-cli" is on PATH, its time to make sure your AI Agent "knows" it can use it. Try the following as a Prompt: </p> 
+            <p style="margin-top: 8px;">If your AI Tether is active and "arduino-cli" is on PATH, its time to make sure your AI Agent "knows" it can use it. Try the following as a Prompt: </p>
             <br>
             <div style="margin-top: 8px; color: var(--ink); border-left: 2px solid var(--muted); padding-left: 8px;">
-              Please use &lt;IDE-Extension&gt; Arduino Grease &lt;/IDE-Extension&gt; to read signals from its MCP server, then generate and upload a new sketch to filter those incoming A0 analog signals. Check, within Arduino Grease's extension folder, for /server/server.mjs and /server/skill.md for existing Rest endpoints and your new skills. You should also use the randomly generated MCP_AUTH_KEY from server.mjs with the Arduino Grease 
-            </div> 
+              Use &lt;IDE-Extension&gt; Arduino Grease &lt;/IDE-Extension&gt; to filter incoming A0 signals: read them via its MCP server, generate a new sketch, upload it. Check dist/SKILL.md and dist/server.mjs inside the extension folder for REST endpoints and skills. GET /state returns the current board/port. Auth key lives in ~/.grease/mcp-auth.json \u2014 send it as the x-grease-auth header.
+            </div>
             <br>
             <p> When running your sketches, try to use the following XML tags to emphasize goals, electronic hardware, mechanical components or control preferences. One example below:</p>
             <div style="margin-top: 8px; color: var(--ink); border-left: 2px solid var(--muted); padding-left: 8px;">
@@ -1675,7 +742,7 @@ function cycleAccent() {
 const rainCanvas = document.getElementById('rainCanvas');
 const rctx = rainCanvas.getContext('2d');
 const panelArea = document.getElementById('panelArea');
-const CHARS = 'abcdefghijklmnopqrstuvwxyzNH01+=-./\\[]{}()?!<>:;'.split('');
+const CHARS = 'abcdefghijklmnopqrstuvwxyzNH01+=-./\\\\[]{}()?!<>:;'.split('');
 const COL = 13;
 let drops=[], W=0, H=0, mouseX=-999, mouseY=-999, rainActive=true;
 let thrustOpacityBoost = 0, thrustSpeedMult = 1.0;
@@ -1715,7 +782,7 @@ function drawRain(){
     const dx=x-mouseX,dy=d.y-mouseY,dist=Math.sqrt(dx*dx+dy*dy);
     const inSlow = dist < 60;
     const inHalt = dist < 15;
-    
+
     if(inHalt && !d.halted){
       d.halted = true;
       d.o = (d.o || 0) + 0.1;
@@ -1739,7 +806,7 @@ function drawRain(){
       }
     }
     else{bo=Math.min(1,(inSlow?0.40:0.03)+d.o); ho=Math.min(1,(inSlow?0.80:0.10)+d.o); fz=inSlow?13:12; sp=inSlow?(3+(60-dist)*0.08):(1.2+Math.random()*0.6);}
-    
+
     if(d.y < -20) d.rocket = false;
     const finalBRGB = d.blue ? '0,100,210' : bRGB;
     const finalHRGB = d.blue ? '80,160,255' : hRGB;
@@ -2038,750 +1105,5 @@ $("libInstallBtn")?.addEventListener("click", () => vscode.postMessage({ type: "
 function onUploadClick(){setRainState('thrust');cmd('arduinoMcp.upload');}
     </script>
   </body>
-</html>`;
-  }
-};
-
-// src/extension.ts
-var OUTPUT_CHANNEL_NAME = "Arduino Grease";
-function delay2(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-async function activate(context) {
-  const output = vscode8.window.createOutputChannel(OUTPUT_CHANNEL_NAME);
-  context.subscriptions.push(output);
-  output.appendLine("Arduino Grease activating...");
-  // ── First-install setup: apply Grease theme + move Activity Bar to top ───
-  vscode8.workspace.getConfiguration().update("output.smartScroll.enabled", false, vscode8.ConfigurationTarget.Global).then(void 0, () => {});
-  const FIRST_INSTALL_KEY = "arduinoMcp.firstInstallDone_1_0_6";
-  const firstInstallDone = context.globalState.get(FIRST_INSTALL_KEY);
-  if (!firstInstallDone) {
-    try {
-      const wbConfig = vscode8.workspace.getConfiguration("workbench");
-      await wbConfig.update("colorTheme", "Grease", vscode8.ConfigurationTarget.Global);
-      await wbConfig.update("activityBar.location", "top", vscode8.ConfigurationTarget.Global);
-      output.appendLine("First install: Applied Grease theme and moved Activity Bar to top.");
-    } catch (e) {
-      output.appendLine("First install theme setup failed: " + (e instanceof Error ? e.message : String(e)));
-    }
-    await context.globalState.update(FIRST_INSTALL_KEY, true);
-  }
-  // ── Arduino diagnostics collection for clangd bridge ──────────────────
-  const arduinoDiagnostics = vscode8.languages.createDiagnosticCollection("arduino");
-  context.subscriptions.push(arduinoDiagnostics);
-  let serverProcess = null;
-  let serverHealthy = false;
-  let sawServerProblem = false;
-  let lastScanAtMs = null;
-  let portsRefreshArmed = false;
-  const startServer = async () => {
-    if (serverProcess) return true;
-    try {
-      serverProcess = await startBundledServer(context, output, 3333);
-      setServerBaseUrl(`http://127.0.0.1:${serverProcess.port}`);
-      setAuthKey(serverProcess.authKey);
-      output.appendLine(`Arduino Grease server started on port ${serverProcess.port}.`);
-      return true;
-    } catch (e) {
-      output.appendLine(`Failed to start bundled server: ${e instanceof Error ? e.message : String(e)}`);
-      return false;
-    }
-  };
-  const stopServer = async () => {
-    if (!serverProcess) return;
-    await serverProcess.stop();
-    serverProcess = null;
-    serverHealthy = false;
-    sawServerProblem = false;
-    output.appendLine("Arduino Grease server stopped.");
-  };
-  await startServer();
-  // ── arduino-cli presence check ────────────────────────────────────────────
-  {
-    const check = await runArduinoCli(["version"]);
-    if (!check.success && (check.stderr?.includes("ENOENT") || check.exitCode === null)) {
-      const installGuide = os.platform() === "win32"
-        ? "Run: winget install ArduinoSA.ArduinoCLI"
-        : os.platform() === "darwin"
-          ? "Run: brew install arduino-cli"
-          : "Run: curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | sh";
-      const action = await vscode8.window.showWarningMessage(
-        `Arduino Grease: arduino-cli not found on PATH. ${installGuide} — then restart your IDE.`,
-        "Open Install Guide"
-      );
-      if (action === "Open Install Guide") {
-        vscode8.env.openExternal(vscode8.Uri.parse("https://arduino.github.io/arduino-cli/latest/installation/"));
-      }
-    } else {
-      await runArduinoCli(["config", "set", "library.enable_unsafe_install", "true"]).catch(() => {});
-    }
-  }
-  context.subscriptions.push({
-    dispose: () => {
-      void stopServer();
-    }
-  });
-  const status = vscode8.window.createStatusBarItem(vscode8.StatusBarAlignment.Left, 100);
-  status.name = "Arduino Grease Target";
-  status.command = "arduinoMcp.refreshPortsBoards";
-  status.show();
-  context.subscriptions.push(status);
-  const serialMonitorPanel = new SerialMonitorPanel(output);
-  const serialPlotterPanel = new SerialPlotterPanel(output);
-  const examplesPanel = new ExamplesPanel(context, output);
-  const boardTemplatePanel = new BoardTemplatePanel(context);
-  const toolbar = new ArduinoToolbarViewProvider(context, output, {
-    chooseTarget: async (fqbn) => {
-      // Match port by FQBN core family first (e.g. esp32:esp32:XIAO matches esp32:esp32:esp32)
-      const corePrefix = fqbn.split(":").slice(0, 2).join(":");
-      const candidate =
-        lastCandidates.find((c) => c.fqbn?.startsWith(corePrefix + ":") && typeof c.port === "string") ??
-        lastCandidates.find((c) => c.port === currentTarget?.port) ??
-        lastCandidates.find((c) => typeof c.port === "string") ??
-        null;
-      const port = candidate?.port ?? currentTarget?.port ?? null;
-      if (!port) {
-        vscode8.window.showWarningMessage("Arduino Grease: No port detected. Connect a board first.");
-        return;
-      }
-      const memCandidate = candidate ?? lastCandidates.find((c) => c.port === port);
-      const keysToSave = boardMemoryKeys(memCandidate);
-      if (keysToSave.length > 0) {
-        const mem = await loadBoardMemory(context);
-        for (const k of keysToSave) mem[k] = { fqbn };
-        await saveBoardMemory(context, mem);
-        output.appendLine(`[BoardMemory] Saved (${keysToSave.join(", ")}) → ${fqbn}`);
-      } else {
-        output.appendLine(`[BoardMemory] Warning: no identifiers found for ${port} — memory not saved`);
-      }
-      currentTarget = { port, fqbn, userChosen: true };
-      await saveTarget(context, currentTarget);
-      await syncTargetToServer(currentTarget);
-      setOk(currentTarget);
-      refreshToolbarState();
-    },
-    uploadFirmwareToTarget: async (fqbn) => {
-      const port = currentTarget?.port ?? lastCandidates[0]?.port ?? null;
-      if (!port) {
-        vscode8.window.showWarningMessage("Arduino Grease: No port detected. Connect a board first.");
-        return;
-      }
-      currentTarget = { port, fqbn, userChosen: true };
-      await saveTarget(context, currentTarget);
-      await syncTargetToServer(currentTarget);
-      setOk(currentTarget);
-      refreshToolbarState();
-      await runFirmwareUpload(fqbn, port);
-    },
-    serialOff: async () => {
-      if (serialMonitorPanel.isConnected) {
-        await serialMonitorPanel.stop();
-        output.appendLine("Serial disconnected (panel switch).");
-        refreshToolbarState();
-      }
-    },
-    cycleAccent: async (color) => {
-      const config = vscode8.workspace.getConfiguration("workbench");
-      const current = config.get("colorCustomizations") || {};
-      const updated = { ...current, 
-        "statusBar.background": color, 
-        "statusBar.noFolderBackground": color,
-        "statusBar.debuggingBackground": color,
-        "statusBarItem.remoteBackground": color,
-        "focusBorder": color, 
-        "activityBarBadge.background": color, 
-        "panelTitle.activeBorder": color 
-      };
-      const target = (vscode8.workspace.workspaceFolders && vscode8.workspace.workspaceFolders.length > 0) ? vscode8.ConfigurationTarget.Workspace : vscode8.ConfigurationTarget.Global;
-      await config.update("colorCustomizations", updated, target);
-      output.appendLine(`Accent color set to ${color} (Target: ${target === vscode8.ConfigurationTarget.Workspace ? 'Workspace' : 'Global'})`);
-      refreshToolbarState();
-    }
-  });
-  context.subscriptions.push(vscode8.window.registerWebviewViewProvider(ArduinoToolbarViewProvider.viewType, toolbar));
-  let lastCandidates = [];
-  let lastPorts = /* @__PURE__ */ new Set();
-  let lastServerState = null;
-  let lastPortChangeVersion = 0;
-  let currentTarget = await loadTarget(context);
-  if (currentTarget) await syncTargetToServer(currentTarget);
-  const refreshToolbarState = () => {
-    const config = vscode8.workspace.getConfiguration("workbench");
-    const customizations = config.get("colorCustomizations") || {};
-    toolbar.setState({
-      port: currentTarget?.port ?? null,
-      fqbn: currentTarget?.fqbn ?? null,
-      connectedPorts: Array.from(lastPorts),
-      serverRunning: serverProcess !== null,
-      serverHealthy,
-      lastScanAtMs,
-      serialActive: serialMonitorPanel.isConnected,
-      uploading: !!lastServerState?.uploading,
-      accentColor: customizations["statusBar.background"] || "#007ACC"
-    });
-  };
-  const setWarning = (text) => {
-    status.text = `$(warning) ${text}`;
-    status.backgroundColor = new vscode8.ThemeColor("statusBarItem.warningBackground");
-    status.tooltip = "Arduino Grease needs a board/port selection";
-  };
-  const setOk = (target) => {
-    if (target.fqbn) {
-      status.text = `$(circuit-board) ${target.fqbn} @ ${target.port}`;
-      status.backgroundColor = void 0;
-      status.tooltip = "Arduino Grease target";
-    } else {
-      status.text = `$(plug) ${target.port} (board unknown)`;
-      status.backgroundColor = new vscode8.ThemeColor("statusBarItem.warningBackground");
-      status.tooltip = "Port detected but board not resolved. Use 'arduino-cli board list' and 'arduino-cli core install <package>' to install the correct driver.";
-    }
-  };
-  const checkServerHealth = async (verbose = false) => {
-    if (!serverProcess) {
-      serverHealthy = false;
-      refreshToolbarState();
-      return;
-    }
-    try {
-      const res = await fetch(`http://127.0.0.1:${serverProcess.port}/state`, {
-        headers: { "x-grease-auth": serverProcess.authKey }
-      });
-      const s = await res.json();
-      const ok = !!s.target;
-      serverHealthy = ok;
-      
-      if (s.uploading) {
-        toolbar.view?.webview.postMessage({ type: "rainState", state: "thrust" });
-      } else if (lastServerState?.uploading) {
-        // Transition from uploading to idle
-        toolbar.view?.webview.postMessage({ type: "rainState", state: "idle" });
-      }
-      lastServerState = s;
-      if (typeof s.portChangeVersion === "number" && s.portChangeVersion !== lastPortChangeVersion) {
-        lastPortChangeVersion = s.portChangeVersion;
-        if (!s.uploading) void reconcileTarget();
-      }
-
-      if (!ok) {
-        output.appendLine("Problem with MCP Server");
-        sawServerProblem = true;
-      } else if (sawServerProblem) {
-        output.appendLine("MCP Server recovered.");
-        sawServerProblem = false;
-      }
-      if (verbose) {
-        output.appendLine(`Server status: ${ok ? "running and healthy" : "running but unhealthy"}`);
-      }
-    } catch (e) {
-      serverHealthy = false;
-      output.appendLine("Problem with MCP Server");
-      if (verbose) {
-        output.appendLine(`Server health check failed: ${e instanceof Error ? e.message : String(e)}`);
-      }
-      sawServerProblem = true;
-    }
-    refreshToolbarState();
-  };
-  const reconcileTarget = async () => {
-    lastScanAtMs = Date.now();
-    const detection = await refreshBoards(output);
-    lastCandidates = detection.candidates;
-    const portsNow = new Set(lastCandidates.map((c) => c.port).filter((p) => typeof p === "string"));
-    const changed = portsNow.size !== lastPorts.size || Array.from(portsNow).some((p) => !lastPorts.has(p)) || Array.from(lastPorts).some((p) => !portsNow.has(p));
-    lastPorts = portsNow;
-    if (currentTarget?.port && !portsNow.has(currentTarget.port)) {
-      output.appendLine(`Port ${currentTarget.port} disconnected. Clearing selected target.`);
-      currentTarget = null;
-      await saveTarget(context, null);
-      await syncTargetToServer(null);
-    }
-    // Apply board memory, then deduplicate to one best candidate per port
-    const boardMem = await loadBoardMemory(context);
-    const resolvedCandidates = lastCandidates.map((c) => {
-      for (const k of boardMemoryKeys(c)) {
-        if (boardMem[k]) {
-          output.appendLine(`[BoardMemory] Restored ${boardMem[k].fqbn} for ${c.port} via ${k}`);
-          return { ...c, fqbn: boardMem[k].fqbn, fromMemory: true };
-        }
-      }
-      return c;
-    });
-    // Collapse multiple candidates at the same port into one, preferring fromMemory
-    const portMap = new Map();
-    for (const c of resolvedCandidates) {
-      if (typeof c.port !== "string") continue;
-      const existing = portMap.get(c.port);
-      if (!existing || (!existing.fromMemory && c.fromMemory)) portMap.set(c.port, c);
-    }
-    const deduped = Array.from(portMap.values());
-    const candidatesWithFqbn = deduped.filter((c) => typeof c.fqbn === "string" && typeof c.port === "string");
-    const portsOnly = deduped.filter((c) => !c.fqbn && typeof c.port === "string");
-    if (!currentTarget?.userChosen && candidatesWithFqbn.length === 1) {
-      const only = candidatesWithFqbn[0];
-      const remembered = only.fromMemory;
-      currentTarget = { port: only.port, fqbn: only.fqbn, userChosen: !!remembered };
-      if (remembered) output.appendLine(`[BoardMemory] Restored ${only.fqbn} for ${vidPidKey(only.vid, only.pid) ?? only.port}`);
-      await saveTarget(context, currentTarget);
-      await syncTargetToServer(currentTarget);
-    } else if (!currentTarget?.userChosen && candidatesWithFqbn.length === 0 && portsOnly.length === 1) {
-      const onlyPort = portsOnly[0];
-      currentTarget = { port: onlyPort.port, fqbn: null };
-      await saveTarget(context, currentTarget);
-      await syncTargetToServer(currentTarget);
-    }
-    // FQBN is never auto-overridden once chosen — only the user can change it via ||Choose as target||
-    if (!currentTarget) {
-      if (portsNow.size === 0) {
-        setWarning("No serial ports detected");
-        if (changed) output.appendLine("No Arduino port detected.");
-      } else {
-        setWarning("Select board/port");
-      }
-    } else {
-      setOk(currentTarget);
-      if (changed) {
-        output.appendLine(`Port ${currentTarget.port} and Board ${currentTarget.fqbn ?? "unknown"} detected.`);
-      }
-      // ── Auto board core detection & install prompt ──────────────────────
-      if (currentTarget.fqbn && changed) {
-        const corePkg = extractCoreFromFqbn(currentTarget.fqbn);
-        if (corePkg) {
-          const installed = await isCoreInstalled(corePkg);
-          if (installed) {
-            output.appendLine(`Board core ${corePkg} is already installed.`);
-          } else {
-            const choice = await vscode8.window.showInformationMessage(
-              `Arduino Grease: Board core "${corePkg}" is not installed. Would you like me to install the driver for this board?`,
-              "Install",
-              "Cancel"
-            );
-            if (choice === "Install") {
-              output.appendLine(`Installing board core ${corePkg}...`);
-              const up = await updateIndexes();
-              output.appendLine(up.stdout);
-              output.appendLine(up.stderr);
-              const res = await installCore(corePkg);
-              output.appendLine(res.stdout);
-              output.appendLine(res.stderr);
-              if (res.success) {
-                vscode8.window.showInformationMessage(`Arduino Grease: Board core ${corePkg} installed successfully.`);
-              } else {
-                vscode8.window.showErrorMessage(`Arduino Grease: Failed to install board core ${corePkg}. See Output.`);
-              }
-            }
-          }
-        }
-      }
-    }
-    refreshToolbarState();
-  };
-  const refreshPortsAndBoard = async () => {
-    output.show(true);
-    const detection = await refreshBoards(output);
-    lastCandidates = detection.candidates;
-    if (currentTarget?.port && currentTarget?.fqbn) {
-      // Board already chosen — let the user pick a new one instead of silently refreshing
-      const picked = await promptForTarget(context, lastCandidates, currentTarget);
-      if (picked) {
-        currentTarget = { ...picked, userChosen: true };
-        await syncTargetToServer(currentTarget);
-        setOk(currentTarget);
-        refreshToolbarState();
-      }
-      return;
-    }
-    if (portsRefreshArmed) {
-      await vscode8.commands.executeCommand("workbench.action.closeQuickOpen");
-      portsRefreshArmed = false;
-      return;
-    }
-    portsRefreshArmed = true;
-    setTimeout(() => {
-      portsRefreshArmed = false;
-    }, 6e3);
-    const picked = await promptForTarget(context, lastCandidates, currentTarget);
-    if (picked) {
-      currentTarget = { ...picked, userChosen: true };
-      await syncTargetToServer(currentTarget);
-      setOk(currentTarget);
-      refreshToolbarState();
-    }
-  };
-  const getValidSketchPath = async () => {
-    const sketchPath = getSketchFolder();
-    if (!sketchPath) {
-      return null;
-    }
-    const mainIno = findMainSketchFile(sketchPath);
-    if (mainIno) {
-      return sketchPath;
-    }
-    output.appendLine(`Invalid sketch folder (main .ino missing): ${sketchPath}`);
-    const choice = await vscode8.window.showWarningMessage(
-      "Arduino Grease: Current folder is not a valid sketch (missing main .ino).",
-      "Start Sketch",
-      "Cancel"
-    );
-    if (choice === "Start Sketch") {
-      await vscode8.commands.executeCommand("arduinoMcp.startSketch");
-    }
-    return null;
-  };
-  const runVerifyOnly = async (fqbnOverride) => {
-    output.show(true);
-    const sketchPath = await getValidSketchPath();
-    if (!sketchPath) {
-      vscode8.window.showErrorMessage("Arduino Grease: No valid sketch folder found.");
-      return { ok: false };
-    }
-    const fqbn = fqbnOverride ?? currentTarget?.fqbn ?? null;
-    if (!fqbn) {
-      const choice = await vscode8.window.showWarningMessage(
-        "Arduino Grease: Board unknown. Install/select a core so an FQBN is available.",
-        "Install core...",
-        "Select board/port..."
-      );
-      if (choice === "Install core...") {
-        await vscode8.commands.executeCommand("arduinoMcp.installCore");
-      } else {
-        await vscode8.commands.executeCommand("arduinoMcp.refreshPortsBoards");
-      }
-      return { ok: false };
-    }
-    const verifyCmd = `$ arduino-cli compile --fqbn ${fqbn} "${sketchPath}"`;
-    output.appendLine(verifyCmd);
-    const res = await runArduinoCli(["compile", "--fqbn", fqbn, sketchPath], sketchPath);
-    output.appendLine(res.stdout);
-    output.appendLine(res.stderr);
-    if (!res.success) {
-      // Parse compiler errors into diagnostics
-      const diagMap = new Map();
-      const errorRegex = /^(.+):([0-9]+):([0-9]+):\s*(error|warning):\s*(.+)$/gm;
-      let m;
-      const combinedOutput = (res.stdout + "\n" + res.stderr);
-      while ((m = errorRegex.exec(combinedOutput)) !== null) {
-        const filePath = m[1];
-        const line = Math.max(0, parseInt(m[2], 10) - 1);
-        const col = Math.max(0, parseInt(m[3], 10) - 1);
-        const severity = m[4] === "error" ? vscode8.DiagnosticSeverity.Error : vscode8.DiagnosticSeverity.Warning;
-        const message = m[5];
-        const range = new vscode8.Range(line, col, line, col + 1);
-        const diag = new vscode8.Diagnostic(range, message, severity);
-        diag.source = "Arduino Grease";
-        const uri = vscode8.Uri.file(filePath);
-        const key = uri.toString();
-        if (!diagMap.has(key)) diagMap.set(key, []);
-        diagMap.get(key).push(diag);
-      }
-      arduinoDiagnostics.clear();
-      for (const [uriStr, diags] of diagMap) {
-        arduinoDiagnostics.set(vscode8.Uri.parse(uriStr), diags);
-      }
-      vscode8.window.showErrorMessage("Arduino Grease: Verify failed (see Output).");
-      return { ok: false };
-    }
-    arduinoDiagnostics.clear();
-    // Generate compile_commands.json for clangd IntelliSense
-    void generateCompileCommands(fqbn, sketchPath, output);
-    vscode8.window.showInformationMessage("Arduino Grease: Verify succeeded.");
-    return { ok: true, sketchPath, fqbn };
-  };
-  const runUpload = async (opts) => {
-    output.show(true);
-    await vscode8.workspace.saveAll(false);
-    let sketchPath = null;
-    let fqbn = opts?.fqbnOverride ?? currentTarget?.fqbn ?? null;
-    if (opts?.verifyFirst !== false) {
-      const verify = await runVerifyOnly(fqbn ?? void 0);
-      if (!verify.ok) return false;
-      sketchPath = verify.sketchPath ?? null;
-      fqbn = verify.fqbn ?? fqbn;
-    } else {
-      sketchPath = await getValidSketchPath();
-      if (!sketchPath) return false;
-    }
-    const port = opts?.portOverride ?? currentTarget?.port ?? null;
-    if (!port) {
-      vscode8.window.showWarningMessage("Arduino Grease: Select a port first.");
-      await vscode8.commands.executeCommand("arduinoMcp.refreshPortsBoards");
-      return false;
-    }
-    if (!fqbn || !sketchPath) {
-      vscode8.window.showWarningMessage("Arduino Grease: Select a board first.");
-      await vscode8.commands.executeCommand("arduinoMcp.refreshPortsBoards");
-      return false;
-    }
-    const uploadCmd = `$ arduino-cli upload -p ${port} --fqbn ${fqbn} "${sketchPath}"`;
-    output.appendLine(uploadCmd);
-    toolbar.view?.webview.postMessage({ type: "rainState", state: "thrust" });
-    const res = await runArduinoCli(["upload", "-p", port, "--fqbn", fqbn, sketchPath], sketchPath);
-    output.appendLine(res.stdout);
-    output.appendLine(res.stderr);
-    toolbar.view?.webview.postMessage({ type: "uploadResult", success: res.success });
-    if (!res.success) {
-      vscode8.window.showErrorMessage("Arduino Grease: Upload failed (see Output).");
-      return false;
-    }
-    vscode8.window.showInformationMessage("Arduino Grease: Upload succeeded.");
-    return true;
-  };
-  const runFirmwareUpload = async (fqbn, port) => {
-    output.show(true);
-    const programmer = await vscode8.window.showInputBox({
-      title: "Programmer",
-      prompt: "Enter programmer (e.g., avrispmkii, usbtinyisp) or leave empty for default",
-      ignoreFocusOut: false
-    });
-    if (programmer === undefined) return;
-    output.appendLine(`[Mngrs] Burning bootloader for ${fqbn} on ${port}...`);
-    const args = ["burn-bootloader", "-b", fqbn, "-p", port];
-    if (programmer) {
-      args.push("-P", programmer);
-    }
-    const up = await runArduinoCli(args);
-    output.appendLine(up.stdout);
-    output.appendLine(up.stderr);
-    if (!up.success) {
-      vscode8.window.showErrorMessage("Arduino Grease: Burn bootloader failed (see Output).");
-      return;
-    }
-    vscode8.window.showInformationMessage("Arduino Grease: Bootloader burned to target.");
-  };
-  await reconcileTarget();
-  await delay(3000);
-  await checkServerHealth(true);
-  const healthInterval = setInterval(() => {
-    void checkServerHealth(false);
-  }, 2000);
-  context.subscriptions.push({ dispose: () => clearInterval(healthInterval) });
-  context.subscriptions.push(
-    vscode8.commands.registerCommand("arduinoMcp.serverStatus", async () => {
-      output.show(true);
-      output.appendLine("Checking MCP server status...");
-      if (!serverProcess) {
-        output.appendLine("Server status: stopped");
-        serverHealthy = false;
-        refreshToolbarState();
-        return;
-      }
-      await checkServerHealth(true);
-    }),
-    vscode8.commands.registerCommand("arduinoMcp.refreshServer", async () => {
-      output.show(true);
-      if (!serverProcess) {
-        await startServer();
-        await delay2(1e3);
-        await checkServerHealth(true);
-        return;
-      }
-      if (serverProcess && !serverHealthy) {
-        await stopServer();
-        await delay2(1e3);
-        await startServer();
-        await delay2(1e3);
-        await checkServerHealth(true);
-        return;
-      }
-      if (serverProcess && serverHealthy) {
-        await stopServer();
-        refreshToolbarState();
-      }
-    }),
-    vscode8.commands.registerCommand("arduinoMcp.startServer", async () => {
-      output.show(true);
-      const ok = await startServer();
-      if (ok) {
-        await checkServerHealth(true);
-        output.appendLine("Server start command completed.");
-      }
-      refreshToolbarState();
-    }),
-    vscode8.commands.registerCommand("arduinoMcp.stopServer", async () => {
-      output.show(true);
-      await stopServer();
-      refreshToolbarState();
-    }),
-    vscode8.commands.registerCommand("arduinoMcp.toggleServer", async () => {
-      output.show(true);
-      if (serverProcess) {
-        await stopServer();
-      } else {
-        await startServer();
-        await checkServerHealth(true);
-      }
-      refreshToolbarState();
-    }),
-    vscode8.commands.registerCommand("arduinoMcp.startSketch", async () => {
-      output.show(true);
-      const name = await vscode8.window.showInputBox({
-        title: "Start new sketch",
-        prompt: "Sketch name",
-        placeHolder: "BlinkNano33",
-        ignoreFocusOut: false,
-        validateInput: (value) => {
-          const trimmed = value.trim();
-          if (!trimmed) return "Sketch name is required.";
-          if (!/^[A-Za-z0-9_\-]+$/.test(trimmed)) return "Use only letters, numbers, underscore, or dash.";
-          return null;
-        }
-      });
-      if (!name) return;
-      const defaultParent = vscode8.workspace.workspaceFolders?.[0]?.uri ?? vscode8.Uri.file(path4.join(os.homedir(), "Documents"));
-      const pickedFolder = await vscode8.window.showOpenDialog({
-        canSelectFiles: false,
-        canSelectFolders: true,
-        canSelectMany: false,
-        defaultUri: defaultParent,
-        openLabel: "Create Sketch Here",
-        title: "Choose parent folder"
-      });
-      if (!pickedFolder?.[0]) return;
-      const parent = pickedFolder[0].fsPath;
-      const sketchPath = path4.join(parent, name.trim());
-      output.appendLine(`$ arduino-cli sketch new "${sketchPath}"`);
-      const res = await runArduinoCli(["sketch", "new", sketchPath]);
-      output.appendLine(res.stdout);
-      output.appendLine(res.stderr);
-      if (!res.success) {
-        vscode8.window.showErrorMessage("Arduino Grease: Failed to create sketch. See output.");
-        return;
-      }
-      const inoPath = path4.join(sketchPath, `${name.trim()}.ino`);
-      try {
-        const doc = await vscode8.workspace.openTextDocument(vscode8.Uri.file(inoPath));
-        await vscode8.window.showTextDocument(doc, { preview: false });
-      } catch (e) {
-        output.appendLine(`Could not open sketch file automatically: ${e instanceof Error ? e.message : String(e)}`);
-      }
-      output.appendLine(`Sketch created: ${sketchPath}`);
-      vscode8.window.showInformationMessage(`Arduino Grease: Sketch created (${name.trim()}).`);
-    }),
-    vscode8.commands.registerCommand("arduinoMcp.installCore", async () => {
-      output.show(true);
-      const items = [
-        { label: "Arduino AVR (Uno/Nano/Mega)", description: "arduino:avr", pkg: "arduino:avr" },
-        { label: "Arduino SAMD (Nano 33 IoT, MKR)", description: "arduino:samd", pkg: "arduino:samd" },
-        { label: "Arduino Mbed OS (Nano 33 BLE, Portenta)", description: "arduino:mbed", pkg: "arduino:mbed" },
-        { label: "ESP32", description: "esp32:esp32", pkg: "esp32:esp32" },
-        { label: "RP2040", description: "rp2040:rp2040", pkg: "rp2040:rp2040" }
-      ];
-      const picked = await vscode8.window.showQuickPick(items, {
-        title: "Install board core",
-        placeHolder: "Pick a core package",
-        ignoreFocusOut: false
-      });
-      if (!picked) return;
-      const up = await updateIndexes();
-      output.appendLine(up.stdout);
-      output.appendLine(up.stderr);
-      const res = await installCore(picked.pkg);
-      output.appendLine(res.stdout);
-      output.appendLine(res.stderr);
-      if (!res.success) {
-        vscode8.window.showErrorMessage(`Arduino Grease: Core install failed for ${picked.pkg}.`);
-      } else {
-        vscode8.window.showInformationMessage(`Arduino Grease: Core installed: ${picked.pkg}.`);
-        await reconcileTarget();
-      }
-    }),
-    vscode8.commands.registerCommand("arduinoMcp.verify", async () => {
-      const res = await runVerifyOnly();
-      toolbar.view?.webview.postMessage({ type: 'verifyResult', success: res.ok === true });
-    }),
-    vscode8.commands.registerCommand("arduinoMcp.upload", async () => {
-      const ok = await runUpload({ verifyFirst: true });
-      toolbar.view?.webview.postMessage({ type: 'uploadResult', success: ok === true });
-    }),
-    vscode8.commands.registerCommand("arduinoMcp.refreshPortsBoards", async () => {
-      await refreshPortsAndBoard();
-    }),
-    vscode8.commands.registerCommand("arduinoMcp.selectTarget", async () => {
-      await refreshPortsAndBoard();
-    }),
-    vscode8.commands.registerCommand("arduinoMcp.toggleSerial", async () => {
-      if (serialMonitorPanel.isConnected) {
-        await serialMonitorPanel.stop();
-      } else {
-        await vscode8.commands.executeCommand("arduinoMcp.openSerialMonitor");
-      }
-      refreshToolbarState();
-    }),
-    vscode8.commands.registerCommand("arduinoMcp.openSerialMonitor", async () => {
-      output.show(true);
-      const defaultPort = currentTarget?.port ?? lastCandidates[0]?.port ?? null;
-      await serialMonitorPanel.start(defaultPort, 9600);
-      output.appendLine(
-        `Type "baud=X" to set a new baud rate, or try any of the following commands: 'send="Hello World"', "clear", "disconnect", or "connect". Transmitting from ${defaultPort ?? "(unknown port)"} below:`
-      );
-    }),
-    vscode8.commands.registerCommand("arduinoMcp.serialCommand", async () => {
-      output.show(true);
-      const command = await vscode8.window.showInputBox({
-        title: "Serial command",
-        prompt: "Enter serial command",
-        placeHolder: 'baud=9600 | send="Hello World" | clear | disconnect | connect',
-        ignoreFocusOut: false
-      });
-      if (!command) return;
-      await serialMonitorPanel.handleConsoleCommand(command);
-    }),
-    vscode8.commands.registerCommand("arduinoMcp.openSerialPlotter", async () => {
-      output.show(true);
-      const defaultPort = currentTarget?.port ?? lastCandidates[0]?.port ?? null;
-      serialPlotterPanel.show(defaultPort, true);
-      if (!serialMonitorPanel.isConnected && defaultPort) {
-        void serialMonitorPanel.start(defaultPort, 9600);
-      }
-      setTimeout(() => {
-        void vscode8.commands.executeCommand("workbench.action.moveEditorToNewWindow");
-      }, 500);
-      refreshToolbarState();
-    }),
-    vscode8.commands.registerCommand("arduinoMcp.openExamples", async () => {
-      output.show(true);
-      if (serialMonitorPanel.isConnected) {
-        await serialMonitorPanel.stop();
-        output.appendLine("Serial disconnected (Examples panel opened).");
-        refreshToolbarState();
-      }
-      examplesPanel.show(currentTarget?.fqbn ?? null);
-    }),
-    vscode8.commands.registerCommand("arduinoMcp.openBoardTemplate", async () => {
-      output.show(true);
-      boardTemplatePanel.show({ fqbn: currentTarget?.fqbn ?? null, port: currentTarget?.port ?? null });
-    }),
-    vscode8.commands.registerCommand("arduinoMcp.cycleAccentColor", async () => {
-      const ACCENT_COLORS = ["#005FA0", "#6B0000", "#A34300", "#8F6809", "#6B004A", "#520A85", "#004D00"];
-      const config = vscode8.workspace.getConfiguration("workbench");
-      const current = config.get("colorCustomizations") || {};
-      const currentColor = current["statusBar.background"] || "#007ACC";
-      const idx = ACCENT_COLORS.indexOf(currentColor);
-      const nextIdx = (idx + 1) % ACCENT_COLORS.length;
-      const color = ACCENT_COLORS[nextIdx];
-      const updated = { ...current, 
-        "statusBar.background": color, 
-        "statusBar.noFolderBackground": color,
-        "statusBar.debuggingBackground": color,
-        "statusBarItem.remoteBackground": color,
-        "focusBorder": color, 
-        "activityBarBadge.background": color, 
-        "panelTitle.activeBorder": color 
-      };
-      const target = (vscode8.workspace.workspaceFolders && vscode8.workspace.workspaceFolders.length > 0) ? vscode8.ConfigurationTarget.Workspace : vscode8.ConfigurationTarget.Global;
-      await config.update("colorCustomizations", updated, target);
-      output.appendLine(`Accent color cycled to ${color} (Target: ${target === vscode8.ConfigurationTarget.Workspace ? 'Workspace' : 'Global'})`);
-      refreshToolbarState();
-      toolbar.view?.webview.postMessage({ type: 'accentColor', color: color });
-    })
-  );
-  refreshToolbarState();
-  output.appendLine("Arduino Grease activated.");
-}
-function deactivate() {
-}
-// Annotate the CommonJS export names for ESM import in node:
-0 && (module.exports = {
-  activate,
-  deactivate
-});
-//# sourceMappingURL=extension.js.map
+</html>`}};var Cr="Arduino Grease";function Re(t){return new Promise(e=>setTimeout(e,t))}async function Gt(t){if(t.languageId==="arduino"&&t.fileName.toLowerCase().endsWith(".ino"))try{await i.languages.setTextDocumentLanguage(t,"cpp")}catch{}}async function kr(t){let e=i.window.createOutputChannel(Cr);t.subscriptions.push(e),e.appendLine("Arduino Grease activating...");let n=t.asAbsolutePath(B.join("resources","arduino_docs.h")),r=gt(n);t.subscriptions.push(ht(r,e)),vt(r,e);for(let a of i.workspace.textDocuments)Gt(a),ke(a.uri.fsPath,n,e);t.subscriptions.push(i.workspace.onDidOpenTextDocument(a=>{Gt(a),ke(a.uri.fsPath,n,e)})),t.subscriptions.push(i.window.onDidChangeActiveTextEditor(a=>{a&&ke(a.document.uri.fsPath,n,e)})),i.workspace.getConfiguration().update("output.smartScroll.enabled",!1,i.ConfigurationTarget.Global).then(void 0,()=>{});let s="arduinoMcp.firstInstallDone_1_0_6";if(!t.globalState.get(s)){try{let a=i.workspace.getConfiguration("workbench");await a.update("colorTheme","Grease",i.ConfigurationTarget.Global),await a.update("activityBar.location","top",i.ConfigurationTarget.Global),e.appendLine("First install: Applied Grease theme and moved Activity Bar to top.")}catch(a){e.appendLine("First install theme setup failed: "+(a instanceof Error?a.message:String(a)))}await t.globalState.update(s,!0)}let l=i.languages.createDiagnosticCollection("arduino");t.subscriptions.push(l);let d=null,p=!1,b=!1,A=null,M=!1,P=async()=>{if(d)return!0;try{return d=await qt(t,e,3333),Tt(`http://127.0.0.1:${d.port}`),$t(d.authKey),e.appendLine(`Arduino Grease server started on port ${d.port}.`),!0}catch(a){return e.appendLine(`Failed to start bundled server: ${a instanceof Error?a.message:String(a)}`),!1}},$=async()=>{d&&(await d.stop(),d=null,p=!1,b=!1,e.appendLine("Arduino Grease server stopped."))};await P();{let a=await y(["version"]);if(!a.success&&(a.stderr?.includes("ENOENT")||a.exitCode===null)){let c=fe.platform()==="win32"?"Run: winget install ArduinoSA.ArduinoCLI":fe.platform()==="darwin"?"Run: brew install arduino-cli":"Run: curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | sh";await i.window.showWarningMessage(`Arduino Grease: arduino-cli not found on PATH. ${c} \u2014 then restart your IDE.`,"Open Install Guide")==="Open Install Guide"&&i.env.openExternal(i.Uri.parse("https://arduino.github.io/arduino-cli/latest/installation/"))}else await ct()}t.subscriptions.push({dispose:()=>{$()}});let w=i.window.createStatusBarItem(i.StatusBarAlignment.Left,100);w.name="Arduino Grease Target",w.command="arduinoMcp.refreshPortsBoards",w.show(),t.subscriptions.push(w);let L=new $e(e),ge=new Te(e),he=new Ee(t,e),Ht=new Pe(t),_=[],m=null,Je=async()=>{let a=se();a&&await Ce({sketchFolder:a,fqbn:m?.fqbn??null,sidecarPath:n,output:e})},U=new me(t,e,{chooseTarget:async a=>{let c=a.split(":").slice(0,2).join(":"),u=_.find(h=>h.fqbn?.startsWith(c+":")&&typeof h.port=="string")??_.find(h=>h.port===m?.port)??_.find(h=>typeof h.port=="string")??null,g=u?.port??m?.port??null;if(!g){i.window.showWarningMessage("Arduino Grease: No port detected. Connect a board first.");return}let x=u??_.find(h=>h.port===g),k=je(x);if(k.length>0){let h=await qe(t);for(let S of k)h[S]={fqbn:a};await mt(t,h),e.appendLine(`[BoardMemory] Saved (${k.join(", ")}) \u2192 ${a}`)}else e.appendLine(`[BoardMemory] Warning: no identifiers found for ${g} \u2014 memory not saved`);m={port:g,fqbn:a,userChosen:!0},await Z(t,m),await V(m),ae(m),E(),Je()},uploadFirmwareToTarget:async a=>{let c=m?.port??_[0]?.port??null;if(!c){i.window.showWarningMessage("Arduino Grease: No port detected. Connect a board first.");return}m={port:c,fqbn:a,userChosen:!0},await Z(t,m),await V(m),ae(m),E(),await Vt(a,c)},serialOff:async()=>{L.isConnected&&(await L.stop(),e.appendLine("Serial disconnected (panel switch)."),E())},cycleAccent:async a=>{let c=i.workspace.getConfiguration("workbench"),g={...c.get("colorCustomizations")||{},"statusBar.background":a,"statusBar.noFolderBackground":a,"statusBar.debuggingBackground":a,"statusBarItem.remoteBackground":a,focusBorder:a,"activityBarBadge.background":a,"panelTitle.activeBorder":a},x=i.workspace.workspaceFolders&&i.workspace.workspaceFolders.length>0?i.ConfigurationTarget.Workspace:i.ConfigurationTarget.Global;await c.update("colorCustomizations",g,x),e.appendLine(`Accent color set to ${a} (Target: ${x===i.ConfigurationTarget.Workspace?"Workspace":"Global"})`),E()},onLibraryInstalled:Je});t.subscriptions.push(i.window.registerWebviewViewProvider(me.viewType,U));let oe=new Set,Y=null,Xe=0;m=null,await V(null);let E=()=>{let c=i.workspace.getConfiguration("workbench").get("colorCustomizations")||{};U.setState({port:m?.port??null,fqbn:m?.fqbn??null,connectedPorts:Array.from(oe),serverRunning:d!==null,serverHealthy:p,lastScanAtMs:A,serialActive:L.isConnected,uploading:!!Y?.uploading,accentColor:c["statusBar.background"]||"#007ACC"})},Ze=a=>{w.text=`$(warning) ${a}`,w.backgroundColor=new i.ThemeColor("statusBarItem.warningBackground"),w.tooltip="Arduino Grease needs a board/port selection"},ae=a=>{a.fqbn?(w.text=`$(circuit-board) ${a.fqbn} @ ${a.port}`,w.backgroundColor=void 0,w.tooltip="Arduino Grease target"):(w.text=`$(plug) ${a.port} (board unknown)`,w.backgroundColor=new i.ThemeColor("statusBarItem.warningBackground"),w.tooltip="Port detected but board not resolved. Use 'arduino-cli board list' and 'arduino-cli core install <package>' to install the correct driver.")},Nt=()=>new Promise(a=>{let c=process.platform==="win32"?'powershell -NoProfile -Command "Get-CimInstance Win32_Process | Select-Object -ExpandProperty CommandLine"':"ps -eo args";require("child_process").exec(c,{timeout:3e3},(u,g)=>{if(u)return a(!1);a(/arduino-cli\s+(compile|upload)/.test(g))})}),J=async(a=!1)=>{if(!d){p=!1,E();return}try{let u=await(await fetch(`http://127.0.0.1:${d.port}/state`,{headers:{"x-grease-auth":d.authKey}})).json(),g=!!u.target;p=g;let x=Y?.uploading||Y?.compiling||Y?.serial?.isOpen||Y?._cliActive,k=await Nt(),h=u.uploading||u.compiling||u.serial?.isOpen||k||u.agentActive;u._cliActive=k,h?U.view?.webview.postMessage({type:"rainState",state:"thrust"}):x&&U.view?.webview.postMessage({type:"rainState",state:"idle"}),Y=u,typeof u.portChangeVersion=="number"&&u.portChangeVersion!==Xe&&(Xe=u.portChangeVersion,u.uploading||ve()),g?b&&(e.appendLine("MCP Server recovered."),b=!1):(e.appendLine("Problem with MCP Server"),b=!0),a&&e.appendLine(`Server status: ${g?"running and healthy":"running but unhealthy"}`)}catch(c){p=!1,e.appendLine("Problem with MCP Server"),a&&e.appendLine(`Server health check failed: ${c instanceof Error?c.message:String(c)}`),b=!0}E()},ie=new Set,ve=async()=>{A=Date.now(),_=(await Ge(e)).candidates;let c=new Set(_.map(f=>f.port).filter(f=>typeof f=="string")),u=c.size!==oe.size||Array.from(c).some(f=>!oe.has(f))||Array.from(oe).some(f=>!c.has(f));oe=c,u&&ie.clear(),m?.port&&!c.has(m.port)&&(e.appendLine(`Port ${m.port} disconnected. Clearing selected target.`),m=null,await Z(t,null),await V(null));let g=await qe(t),x=_.map(f=>{for(let I of je(f))if(g[I]){let z=`${f.port}:${I}:${g[I].fqbn}`;return ie.has(z)||(e.appendLine(`[BoardMemory] Restored ${g[I].fqbn} for ${f.port} via ${I}`),ie.add(z)),{...f,fqbn:g[I].fqbn,fromMemory:!0}}return f}),k=new Map;for(let f of x){if(typeof f.port!="string")continue;let I=k.get(f.port);(!I||!I.fromMemory&&f.fromMemory)&&k.set(f.port,f)}let h=Array.from(k.values()),S=h.filter(f=>typeof f.fqbn=="string"&&typeof f.port=="string"),N=h.filter(f=>!f.fqbn&&typeof f.port=="string");if(!m?.userChosen&&S.length===1){let f=S[0],I=f.fromMemory;if(m={port:f.port,fqbn:f.fqbn,userChosen:!!I},I){let z=`auto:${f.fqbn}:${f.port}`;ie.has(z)||(e.appendLine(`[BoardMemory] Restored ${f.fqbn} for ${Fe(f.vid,f.pid)??f.port}`),ie.add(z))}await Z(t,m),await V(m)}else!m?.userChosen&&S.length===0&&N.length===1&&(m={port:N[0].port,fqbn:null},await Z(t,m),await V(m));if(!m)c.size===0?(Ze("No serial ports detected"),u&&e.appendLine("No Arduino port detected.")):Ze("Select board/port");else if(ae(m),u&&e.appendLine(`Port ${m.port} and Board ${m.fqbn??"unknown"} detected.`),m.fqbn&&u){let f=it(m.fqbn);if(f){if(await lt(f))e.appendLine(`Board core ${f} is already installed.`);else if(await i.window.showInformationMessage(`Arduino Grease: Board core "${f}" is not installed. Would you like me to install the driver for this board?`,"Install","Cancel")==="Install"){e.appendLine(`Installing board core ${f}...`);let X=await _e();e.appendLine(X.stdout),e.appendLine(X.stderr);let re=await De(f);e.appendLine(re.stdout),e.appendLine(re.stderr),re.success?i.window.showInformationMessage(`Arduino Grease: Board core ${f} installed successfully.`):i.window.showErrorMessage(`Arduino Grease: Failed to install board core ${f}. See Output.`)}}}E()},et=async()=>{if(e.show(!0),_=(await Ge(e)).candidates,m?.port&&m?.fqbn){let u=await He(t,_,m);u&&(m={...u,userChosen:!0},await V(m),ae(m),E());return}if(M){await i.commands.executeCommand("workbench.action.closeQuickOpen"),M=!1;return}M=!0,setTimeout(()=>{M=!1},6e3);let c=await He(t,_,m);c&&(m={...c,userChosen:!0},await V(m),ae(m),E())},zt=async()=>{let a=se();return a?ne(a)?a:(e.appendLine(`Invalid sketch folder (main .ino missing): ${a}`),await i.window.showWarningMessage("Arduino Grease: Current folder is not a valid sketch (missing main .ino).","Start Sketch","Cancel")==="Start Sketch"&&await i.commands.executeCommand("arduinoMcp.startSketch"),null):null},tt=async()=>{let a=At();if(a){let g=Mt(a);if(g)return g;e.appendLine(`[verify] Could not stage active sketch: ${a}`)}let c=await zt();if(!c)return null;let u=ne(c);return u?{sketchDir:c,mainIno:u,isTemp:!1}:null},Wt=(a,c)=>{if(!c.isTemp||!c.originalDir)return a;let u=B.normalize(a),g=B.normalize(c.sketchDir);if(!u.startsWith(g))return a;let x=B.relative(g,u);return c.originalIno&&B.basename(x).toLowerCase()===B.basename(c.mainIno).toLowerCase()&&B.dirname(x)==="."?c.originalIno:B.join(c.originalDir,x)},rt=async a=>{e.show(!0);let c=await tt();if(!c)return i.window.showErrorMessage("Arduino Grease: No .ino file open or valid sketch folder found."),{ok:!1};let u=c.sketchDir,g=a??m?.fqbn??null;if(!g)return await i.window.showWarningMessage("Arduino Grease: Board unknown. Install/select a core so an FQBN is available.","Install core...","Select board/port...")==="Install core..."?await i.commands.executeCommand("arduinoMcp.installCore"):await i.commands.executeCommand("arduinoMcp.refreshPortsBoards"),{ok:!1};let x=c.isTemp?c.originalIno:u;e.appendLine(`$ arduino-cli compile --fqbn ${g} "${x}"`),c.isTemp&&e.appendLine(`  (staged into temp sketch folder: ${u} \u2014 original folder name '${B.basename(c.originalDir)}' doesn't match .ino basename '${B.basename(c.mainIno,".ino")}')`);let k=await y(["compile","--fqbn",g,u],u);if(e.appendLine(k.stdout),e.appendLine(k.stderr),!k.success){let S=new Map,N=/^(.+):([0-9]+):([0-9]+):\s*(error|warning):\s*(.+)$/gm,f,I=k.stdout+`
+`+k.stderr;for(;(f=N.exec(I))!==null;){let z=Wt(f[1],c),X=Math.max(0,parseInt(f[2],10)-1),re=Math.max(0,parseInt(f[3],10)-1),Yt=f[4]==="error"?i.DiagnosticSeverity.Error:i.DiagnosticSeverity.Warning,Jt=f[5],Xt=new i.Range(X,re,X,re+1),nt=new i.Diagnostic(Xt,Jt,Yt);nt.source="Arduino Grease";let Oe=i.Uri.file(z).toString();S.has(Oe)||S.set(Oe,[]),S.get(Oe).push(nt)}l.clear();for(let[z,X]of S)l.set(i.Uri.parse(z),X);return i.window.showErrorMessage("Arduino Grease: Verify failed (see Output)."),{ok:!1,prepared:c}}l.clear();let h=c.isTemp&&c.originalDir?c.originalDir:u;return xe(g,h,e),i.window.showInformationMessage("Arduino Grease: Verify succeeded."),{ok:!0,sketchPath:u,fqbn:g,prepared:c}},Ut=async a=>{e.show(!0),await i.workspace.saveAll(!1);let c=null,u=a?.fqbnOverride??m?.fqbn??null;if(a?.verifyFirst!==!1){let S=await rt(u??void 0);if(!S.ok)return!1;c=S.prepared??null,u=S.fqbn??u}else c=await tt();if(!c)return i.window.showErrorMessage("Arduino Grease: No .ino file to upload."),!1;let g=c.sketchDir,x=a?.portOverride??m?.port??null;if(!x)return i.window.showWarningMessage("Arduino Grease: Select a port first."),await i.commands.executeCommand("arduinoMcp.refreshPortsBoards"),!1;if(!u)return i.window.showWarningMessage("Arduino Grease: Select a board first."),await i.commands.executeCommand("arduinoMcp.refreshPortsBoards"),!1;let k=c.isTemp?c.originalIno:g;e.appendLine(`$ arduino-cli upload -p ${x} --fqbn ${u} "${k}"`),U.view?.webview.postMessage({type:"rainState",state:"thrust"});let h=await y(["upload","-p",x,"--fqbn",u,g],g);return e.appendLine(h.stdout),e.appendLine(h.stderr),U.view?.webview.postMessage({type:"uploadResult",success:h.success}),h.success?(i.window.showInformationMessage("Arduino Grease: Upload succeeded."),!0):(i.window.showErrorMessage("Arduino Grease: Upload failed (see Output)."),!1)},Vt=async(a,c)=>{e.show(!0);let u=await i.window.showInputBox({title:"Programmer",prompt:"Enter programmer (e.g., avrispmkii, usbtinyisp) or leave empty for default",ignoreFocusOut:!1});if(u===void 0)return;e.appendLine(`[Mngrs] Burning bootloader for ${a} on ${c}...`);let g=["burn-bootloader","-b",a,"-p",c];u&&g.push("-P",u);let x=await y(g);if(e.appendLine(x.stdout),e.appendLine(x.stderr),!x.success){i.window.showErrorMessage("Arduino Grease: Burn bootloader failed (see Output).");return}i.window.showInformationMessage("Arduino Grease: Bootloader burned to target.")};await ve(),Lt({fqbn:m?.fqbn??null,sidecarPath:n,output:e}),yt({log:a=>e.appendLine(a),arduinoCliPath:process.env.ARDUINO_CLI_PATH}),await Re(3e3),await J(!0);let Qt=setInterval(()=>{J(!1)},500);t.subscriptions.push({dispose:()=>clearInterval(Qt)});let Kt=setInterval(()=>{Y?.uploading||ve()},5e3);t.subscriptions.push({dispose:()=>clearInterval(Kt)}),t.subscriptions.push(i.commands.registerCommand("arduinoMcp.serverStatus",async()=>{if(e.show(!0),e.appendLine("Checking MCP server status..."),!d){e.appendLine("Server status: stopped"),p=!1,E();return}await J(!0)}),i.commands.registerCommand("arduinoMcp.refreshServer",async()=>{if(e.show(!0),!d){await P(),await Re(1e3),await J(!0);return}if(d&&!p){await $(),await Re(1e3),await P(),await Re(1e3),await J(!0);return}d&&p&&(await $(),E())}),i.commands.registerCommand("arduinoMcp.startServer",async()=>{e.show(!0),await P()&&(await J(!0),e.appendLine("Server start command completed.")),E()}),i.commands.registerCommand("arduinoMcp.stopServer",async()=>{e.show(!0),await $(),E()}),i.commands.registerCommand("arduinoMcp.toggleServer",async()=>{e.show(!0),d?await $():(await P(),await J(!0)),E()}),i.commands.registerCommand("arduinoMcp.startSketch",async()=>{e.show(!0);let a=await i.window.showInputBox({title:"Start new sketch",prompt:"Sketch name",placeHolder:"BlinkNano33",ignoreFocusOut:!1,validateInput:S=>{let N=S.trim();return N?/^[A-Za-z0-9_\-]+$/.test(N)?null:"Use only letters, numbers, underscore, or dash.":"Sketch name is required."}});if(!a)return;let c=i.workspace.workspaceFolders?.[0]?.uri??i.Uri.file(B.join(fe.homedir(),"Documents")),u=await i.window.showOpenDialog({canSelectFiles:!1,canSelectFolders:!0,canSelectMany:!1,defaultUri:c,openLabel:"Create Sketch Here",title:"Choose parent folder"});if(!u?.[0])return;let g=u[0].fsPath,x=B.join(g,a.trim());e.appendLine(`$ arduino-cli sketch new "${x}"`);let k=await y(["sketch","new",x]);if(e.appendLine(k.stdout),e.appendLine(k.stderr),!k.success){i.window.showErrorMessage("Arduino Grease: Failed to create sketch. See output.");return}let h=B.join(x,`${a.trim()}.ino`);try{let S=await i.workspace.openTextDocument(i.Uri.file(h));await i.window.showTextDocument(S,{preview:!1})}catch(S){e.appendLine(`Could not open sketch file automatically: ${S instanceof Error?S.message:String(S)}`)}e.appendLine(`Sketch created: ${x}`),i.window.showInformationMessage(`Arduino Grease: Sketch created (${a.trim()}).`)}),i.commands.registerCommand("arduinoMcp.installCore",async()=>{e.show(!0);let a=[{label:"Arduino AVR (Uno/Nano/Mega)",description:"arduino:avr",pkg:"arduino:avr"},{label:"Arduino SAMD (Nano 33 IoT, MKR)",description:"arduino:samd",pkg:"arduino:samd"},{label:"Arduino Mbed OS (Nano 33 BLE, Portenta)",description:"arduino:mbed",pkg:"arduino:mbed"},{label:"ESP32",description:"esp32:esp32",pkg:"esp32:esp32"},{label:"RP2040",description:"rp2040:rp2040",pkg:"rp2040:rp2040"}],c=await i.window.showQuickPick(a,{title:"Install board core",placeHolder:"Pick a core package",ignoreFocusOut:!1});if(!c)return;let u=await _e();e.appendLine(u.stdout),e.appendLine(u.stderr);let g=await De(c.pkg);e.appendLine(g.stdout),e.appendLine(g.stderr),g.success?(i.window.showInformationMessage(`Arduino Grease: Core installed: ${c.pkg}.`),await ve()):i.window.showErrorMessage(`Arduino Grease: Core install failed for ${c.pkg}.`)}),i.commands.registerCommand("arduinoMcp.verify",async()=>{let a=await rt();U.view?.webview.postMessage({type:"verifyResult",success:a.ok===!0})}),i.commands.registerCommand("arduinoMcp.upload",async()=>{let a=await Ut({verifyFirst:!0});U.view?.webview.postMessage({type:"uploadResult",success:a===!0})}),i.commands.registerCommand("arduinoMcp.refreshPortsBoards",async()=>{await et()}),i.commands.registerCommand("arduinoMcp.selectTarget",async()=>{await et()}),i.commands.registerCommand("arduinoMcp.toggleSerial",async()=>{L.isConnected?await L.stop():await i.commands.executeCommand("arduinoMcp.openSerialMonitor"),E()}),i.commands.registerCommand("arduinoMcp.openSerialMonitor",async()=>{e.show(!0);let a=m?.port??_[0]?.port??null;await L.start(a,9600),e.appendLine(`Type "baud=X" to set a new baud rate, or try any of the following commands: 'send="Hello World"', "clear", "disconnect", or "connect". Transmitting from ${a??"(unknown port)"} below:`)}),i.commands.registerCommand("arduinoMcp.serialCommand",async()=>{e.show(!0);let a=await i.window.showInputBox({title:"Serial command",prompt:"Enter serial command",placeHolder:'baud=9600 | send="Hello World" | clear | disconnect | connect',ignoreFocusOut:!1});a&&await L.handleConsoleCommand(a)}),i.commands.registerCommand("arduinoMcp.openSerialPlotter",async()=>{e.show(!0);let a=m?.port??_[0]?.port??null;ge.show(a,!0),!L.isConnected&&a&&L.start(a,9600),setTimeout(()=>{i.commands.executeCommand("workbench.action.moveEditorToNewWindow")},500),E()}),i.commands.registerCommand("arduinoMcp.openExamples",async()=>{e.show(!0),L.isConnected&&(await L.stop(),e.appendLine("Serial disconnected (Examples panel opened)."),E()),he.show(m?.fqbn??null)}),i.commands.registerCommand("arduinoMcp.openBoardTemplate",async()=>{e.show(!0),Ht.show({fqbn:m?.fqbn??null,port:m?.port??null})}),i.commands.registerCommand("arduinoMcp.cycleAccentColor",async()=>{let a=["#005FA0","#6B0000","#A34300","#8F6809","#6B004A","#520A85","#004D00"],c=i.workspace.getConfiguration("workbench"),u=c.get("colorCustomizations")||{},g=u["statusBar.background"]||"#007ACC",k=(a.indexOf(g)+1)%a.length,h=a[k],S={...u,"statusBar.background":h,"statusBar.noFolderBackground":h,"statusBar.debuggingBackground":h,"statusBarItem.remoteBackground":h,focusBorder:h,"activityBarBadge.background":h,"panelTitle.activeBorder":h},N=i.workspace.workspaceFolders&&i.workspace.workspaceFolders.length>0?i.ConfigurationTarget.Workspace:i.ConfigurationTarget.Global;await c.update("colorCustomizations",S,N),e.appendLine(`Accent color cycled to ${h} (Target: ${N===i.ConfigurationTarget.Workspace?"Workspace":"Global"})`),E(),U.view?.webview.postMessage({type:"accentColor",color:h})}),i.commands.registerCommand("arduinoMcp.regenerateIntelliSense",async()=>{e.show(!0);let a=se();if(!a){i.window.showWarningMessage("Arduino Grease: Open a sketch first to regenerate IntelliSense.");return}e.appendLine(`[clangd] Manual IntelliSense refresh for ${a}...`),await Ce({sketchFolder:a,fqbn:m?.fqbn??null,sidecarPath:n,output:e,silent:!1})?i.window.showInformationMessage("Arduino Grease: IntelliSense refreshed for clangd."):m?.fqbn||i.window.showInformationMessage("Arduino Grease: .clangd written. Pick a board to also refresh compile_commands.json.")})),E(),e.appendLine("Arduino Grease activated.")}function Ar(){}0&&(module.exports={activate,deactivate});
