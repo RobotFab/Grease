@@ -81,36 +81,52 @@ export class SerialPlotterPanel {
     this.panel = null;
     if (this.pollTimer) clearInterval(this.pollTimer);
     this.pollTimer = null;
+    if (this.isConnected) {
+      void serialClose();
+      this.isConnected = false;
+    }
   }
 
-  /** Open the serial port via the MCP server (same fallback dance as the monitor). */
+  /** Open the serial port via the MCP server, retrying on transient errors (e.g. after board reset). */
   private async connect(port: string, baudRate: number): Promise<void> {
-    try {
-      await serialOpen({ path: port, baudRate });
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      const isPermDenied =
-        msg.includes("Permission denied") || msg.includes("EACCES") || msg.includes("EPERM");
-      if (isPermDenied && os.platform() === "linux") {
-        vscode.window
-          .showErrorMessage(
-            `Serial: Permission denied on ${port}. On Linux, run: sudo usermod -a -G dialout $USER — then log out and back in.`,
-            "Copy Command",
-          )
-          .then((action) => {
-            if (action === "Copy Command") {
-              vscode.env.clipboard.writeText(`sudo usermod -a -G dialout $USER`);
-            }
-          });
-      } else {
-        vscode.window.showErrorMessage(`Serial: Failed to open ${port}: ${msg}`);
+    const MAX_ATTEMPTS = 3;
+    const RETRY_DELAY_MS = 600;
+    let lastMsg = "";
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      try {
+        await serialOpen({ path: port, baudRate });
+        this.output.appendLine(`Serial connected (plotter): ${port} @ ${baudRate}`);
+        this.isConnected = true;
+        this.postStatus();
+        return;
+      } catch (e) {
+        lastMsg = e instanceof Error ? e.message : String(e);
+        const isPermDenied =
+          lastMsg.includes("Permission denied") || lastMsg.includes("EACCES") || lastMsg.includes("EPERM");
+        if (isPermDenied) break; // permission errors won't resolve with retries
+        if (attempt < MAX_ATTEMPTS) {
+          this.output.appendLine(`Serial open failed (plotter, attempt ${attempt}/${MAX_ATTEMPTS}): ${lastMsg} — retrying in ${RETRY_DELAY_MS}ms`);
+          await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
+        }
       }
-      this.output.appendLine(`Serial open failed (plotter): ${msg}`);
-      return;
     }
-    this.output.appendLine(`Serial connected (plotter): ${port} @ ${baudRate}`);
-    this.isConnected = true;
-    this.postStatus();
+    const isPermDenied =
+      lastMsg.includes("Permission denied") || lastMsg.includes("EACCES") || lastMsg.includes("EPERM");
+    if (isPermDenied && os.platform() === "linux") {
+      vscode.window
+        .showErrorMessage(
+          `Serial: Permission denied on ${port}. On Linux, run: sudo usermod -a -G dialout $USER — then log out and back in.`,
+          "Copy Command",
+        )
+        .then((action) => {
+          if (action === "Copy Command") {
+            vscode.env.clipboard.writeText(`sudo usermod -a -G dialout $USER`);
+          }
+        });
+    } else {
+      vscode.window.showErrorMessage(`Serial: Failed to open ${port}: ${lastMsg}`);
+    }
+    this.output.appendLine(`Serial open failed (plotter): ${lastMsg}`);
   }
 
   /** Poll the server every 180 ms for new lines and push them into the webview. */

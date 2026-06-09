@@ -113,38 +113,50 @@ export class SerialMonitorPanel {
   }
 
   /**
-   * Open the port via the MCP server. On Linux, permission errors typically
-   * mean the user isn't in the `dialout` group — we surface a fix-it action
-   * that copies the right command to the clipboard.
+   * Open the port via the MCP server, retrying on transient errors (e.g. port
+   * briefly disappears after a board reset). On Linux, permission errors surface
+   * a fix-it action that copies the dialout group command to the clipboard.
    */
   private async connect(port: string, baudRate: number): Promise<void> {
-    try {
-      await serialOpen({ path: port, baudRate });
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      const isPermDenied =
-        msg.includes("Permission denied") || msg.includes("EACCES") || msg.includes("EPERM");
-      if (isPermDenied && os.platform() === "linux") {
-        vscode.window
-          .showErrorMessage(
-            `Serial: Permission denied on ${port}. On Linux, run: sudo usermod -a -G dialout $USER — then log out and back in.`,
-            "Copy Command",
-          )
-          .then((action) => {
-            if (action === "Copy Command") {
-              vscode.env.clipboard.writeText(`sudo usermod -a -G dialout $USER`);
-            }
-          });
-      } else {
-        vscode.window.showErrorMessage(`Serial: Failed to open ${port}: ${msg}`);
+    const MAX_ATTEMPTS = 3;
+    const RETRY_DELAY_MS = 600;
+    let lastMsg = "";
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      try {
+        await serialOpen({ path: port, baudRate });
+        this.connectedPort = port;
+        this.baudRate = baudRate;
+        this.isConnected = true;
+        this.output.appendLine(`Serial connected: ${port} @ ${baudRate}`);
+        return;
+      } catch (e) {
+        lastMsg = e instanceof Error ? e.message : String(e);
+        const isPermDenied =
+          lastMsg.includes("Permission denied") || lastMsg.includes("EACCES") || lastMsg.includes("EPERM");
+        if (isPermDenied) break; // permission errors won't resolve with retries
+        if (attempt < MAX_ATTEMPTS) {
+          this.output.appendLine(`Serial open failed (attempt ${attempt}/${MAX_ATTEMPTS}): ${lastMsg} — retrying in ${RETRY_DELAY_MS}ms`);
+          await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
+        }
       }
-      this.output.appendLine(`Serial open failed: ${msg}`);
-      return;
     }
-    this.connectedPort = port;
-    this.baudRate = baudRate;
-    this.isConnected = true;
-    this.output.appendLine(`Serial connected: ${port} @ ${baudRate}`);
+    const isPermDenied =
+      lastMsg.includes("Permission denied") || lastMsg.includes("EACCES") || lastMsg.includes("EPERM");
+    if (isPermDenied && os.platform() === "linux") {
+      vscode.window
+        .showErrorMessage(
+          `Serial: Permission denied on ${port}. On Linux, run: sudo usermod -a -G dialout $USER — then log out and back in.`,
+          "Copy Command",
+        )
+        .then((action) => {
+          if (action === "Copy Command") {
+            vscode.env.clipboard.writeText(`sudo usermod -a -G dialout $USER`);
+          }
+        });
+    } else {
+      vscode.window.showErrorMessage(`Serial: Failed to open ${port}: ${lastMsg}`);
+    }
+    this.output.appendLine(`Serial open failed: ${lastMsg}`);
   }
 
   /** Poll the server every 250 ms for buffered lines. */

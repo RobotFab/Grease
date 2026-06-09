@@ -2,7 +2,7 @@
 
 Arduino Grease is a software to build microcontrollers and robots capable of debugging themselves. From LED blinking to Reinforcement Learning experiments, this is an all-in-one solution for your problems.
 
-Arduino tooling + a bundled local MCP server for **agentic hardware debugging** inside VS Code, Cursor, and Antigravity.
+Arduino tooling + a bundled **Grease Server** for **agentic hardware debugging** inside VS Code, Cursor, and Antigravity.
 
 ### Prerequisites (Important!)
 - Node.js
@@ -13,8 +13,8 @@ Arduino tooling + a bundled local MCP server for **agentic hardware debugging** 
 - Make sure your AI Tether is running.
 
 ### What this extension does (MVP)
-- Connects to your microcontroller using arduino-cli, but communicates through Serial Port using a node.js MCP server.
-- Starts a bundled MCP server (random Auth) at `127.0.0.1:333X` (MCP endpoint: `/mcp`, health: `/health`) and Rest endpoints to handle the communication.
+- Connects to your microcontroller using arduino-cli, but communicates through Serial Port using the bundled Grease Server.
+- Starts the Grease Server (random Auth) at `127.0.0.1:333X` (MCP endpoint: `/mcp`, health: `/health`) and REST endpoints to handle the communication.
 - Runs a SKILL file at the MCP, defining embedded debugging tools for agents.
 - Auto-selects a target if exactly one recognized board is present; otherwise prompts you to pick.
 - Adds Activity Bar actions for Verify/Upload/Serial Monitor/Serial Plotter/Examples/Managers/Board Template, to create an user friendly environment.

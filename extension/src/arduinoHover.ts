@@ -146,17 +146,18 @@ export function registerArduinoHoverProvider(
 }
 
 /**
- * Patch the clangd LanguageClient hover middleware so that:
- *   • Symbols documented by Grease → clangd returns null (Grease hover is the only one shown).
- *   • All other symbols → clangd hover is shown, but "provided by ..." lines are removed.
+ * Patch the clangd LanguageClient hover middleware so that clangd hover is
+ * completely suppressed for .ino files — Arduino Grease's own provider handles
+ * all hover for those files.
  *
- * The clangd extension (llvm-vs-code-extensions.vscode-clangd) exposes its LanguageClient
- * via `extension.exports.languageClient`. We store the original middleware and wrap it.
- * If the API is not accessible, this function exits silently — hover still works, it just
- * doesn't filter clangd's output.
+ * Retries for up to 15 s because clangd activates asynchronously and its
+ * languageClient may not be ready when our extension first runs. Tries multiple
+ * property-name paths because the vscode-clangd export API has changed across
+ * versions. All diagnostic output goes to the Output channel so failures are
+ * always visible without a debugger.
  */
 export async function injectClangdHoverFilter(
-  docsMap: Map<string, ArduinoSymbolDoc>,
+  _docsMap: Map<string, ArduinoSymbolDoc>,
   output: vscode.OutputChannel,
 ): Promise<void> {
   const clangdExt = vscode.extensions.getExtension("llvm-vs-code-extensions.vscode-clangd");
@@ -165,51 +166,76 @@ export async function injectClangdHoverFilter(
     return;
   }
 
+  // Retry loop — clangd may still be starting when our activate() runs.
   let api: any;
-  try {
-    api = clangdExt.isActive ? clangdExt.exports : await clangdExt.activate();
-  } catch (e) {
-    output.appendLine("[hover-filter] clangd activation error: " + String(e));
+  for (let attempt = 0; attempt < 15; attempt++) {
+    try {
+      api = clangdExt.isActive ? clangdExt.exports : await clangdExt.activate();
+    } catch (e) {
+      output.appendLine(`[hover-filter] clangd activate error (attempt ${attempt + 1}): ${String(e)}`);
+    }
+    if (api) break;
+    await new Promise<void>((r) => setTimeout(r, 1000));
+  }
+
+  if (!api) {
+    output.appendLine("[hover-filter] clangd API not available after retries — filter skipped");
     return;
   }
 
-  const client = api?.languageClient;
+  output.appendLine("[hover-filter] clangd API keys: " + Object.keys(api).join(", "));
+
+  // Try every known property name the clangd extension has used across versions.
+  const client: any =
+    api?.languageClient ??
+    api?.client ??
+    (typeof api?.getClient === "function" ? api.getClient() : undefined) ??
+    null;
+
   if (!client) {
-    output.appendLine("[hover-filter] languageClient not exposed by clangd — filter skipped");
+    output.appendLine("[hover-filter] languageClient not found in clangd exports — filter skipped");
     return;
   }
 
-  // _clientOptions is the internal property in vscode-languageclient; fall back to the
-  // public getter in case a future version renames it.
-  const opts: any = (client as any)._clientOptions ?? (client as any).clientOptions;
-  const mw = opts?.middleware;
-  if (!mw) {
-    output.appendLine("[hover-filter] clangd middleware not accessible — filter skipped");
+  // Reach into the client's options bag — property name also varies by version.
+  const opts: any =
+    (client as any)._clientOptions ??
+    (client as any).clientOptions ??
+    (typeof (client as any).getClientOptions === "function"
+      ? (client as any).getClientOptions()
+      : undefined) ??
+    null;
+
+  if (!opts) {
+    output.appendLine("[hover-filter] clangd clientOptions not accessible — filter skipped");
     return;
   }
 
+  if (!opts.middleware) opts.middleware = {};
+  const mw = opts.middleware;
   const originalProvideHover: Function | undefined = mw.provideHover;
 
   mw.provideHover = async (
     doc: vscode.TextDocument,
     pos: vscode.Position,
     token: vscode.CancellationToken,
-    next: (d: vscode.TextDocument, p: vscode.Position, t: vscode.CancellationToken) => Thenable<vscode.Hover | null | undefined>,
+    next: (
+      d: vscode.TextDocument,
+      p: vscode.Position,
+      t: vscode.CancellationToken,
+    ) => Thenable<vscode.Hover | null | undefined>,
   ): Promise<vscode.Hover | null | undefined> => {
-    // Suppress clangd hover for symbols Grease documents — our provider handles them.
-    const wordRange = doc.getWordRangeAtPosition(pos);
-    const word = wordRange ? doc.getText(wordRange) : "";
-    if (word && docsMap.has(word)) return null;
+    // .ino files — suppress clangd entirely. Grease is the sole hover provider.
+    if (doc.fileName.toLowerCase().endsWith(".ino")) return null;
 
-    // For everything else: run clangd hover but strip "provided by ..." lines.
+    // All other files — pass through, but strip "provided by ..." noise.
     const result: vscode.Hover | null | undefined = originalProvideHover
-      ? await originalProvideHover(doc, pos, token, next)
+      ? await (originalProvideHover as any)(doc, pos, token, next)
       : await next(doc, pos, token);
-
     return result ? stripProvidedBy(result) : result;
   };
 
-  output.appendLine("[hover-filter] clangd hover filter installed");
+  output.appendLine("[hover-filter] clangd hover suppressed for .ino files");
 }
 
 function stripProvidedBy(hover: vscode.Hover): vscode.Hover {

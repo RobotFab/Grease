@@ -81,3 +81,31 @@ export async function serialRead(): Promise<{
 }> {
   return postJson("/serial/read", {});
 }
+
+export async function postCompile(sketchPath: string): Promise<{
+  ok: boolean;
+  success: boolean;
+  stdout: string;
+  stderr: string;
+  exitCode: number | null;
+}> {
+  return postJson("/compile", { sketchPath });
+}
+
+export async function postUpload(sketchPath: string): Promise<{
+  ok: boolean;
+  success: boolean;
+  stdout: string;
+  stderr: string;
+  exitCode: number | null;
+}> {
+  return postJson("/upload", { sketchPath });
+}
+
+export async function signalThrust(): Promise<void> {
+  await postJson("/thrust", {});
+}
+
+export async function signalIdle(): Promise<void> {
+  await postJson("/idle", {});
+}

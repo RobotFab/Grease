@@ -38,7 +38,6 @@ import * as os from "node:os";
 import * as path from "node:path";
 
 import {
-  enableUnsafeInstall,
   extractCoreFromFqbn,
   generateCompileCommands,
   installCore,
@@ -67,7 +66,7 @@ import {
   prepareSketchForBuild,
   type PreparedSketch,
 } from "./sketch";
-import { setAuthKey, setServerBaseUrl, syncTargetToServer } from "./serverHttpClient";
+import { postCompile, postUpload, setAuthKey, setServerBaseUrl, signalIdle, signalThrust, syncTargetToServer } from "./serverHttpClient";
 import { startBundledServer, type ServerHandle } from "./serverProcess";
 import { BoardTemplatePanel } from "./ui/boardTemplatePanel";
 import { ExamplesPanel } from "./ui/examplesPanel";
@@ -147,6 +146,20 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     }),
   );
 
+  // Watch for new .ino files created on disk by any means (AI agent, script,
+  // file copy) — not just files opened in the editor. As soon as the file
+  // exists, write .clangd so clangd can parse it, and generate
+  // compile_commands.json if a board target is already set. This gives the
+  // user working IntelliSense the moment they open a freshly created sketch.
+  const inoWatcher = vscode.workspace.createFileSystemWatcher("**/*.ino");
+  inoWatcher.onDidCreate((uri) => {
+    const fqbn = currentTarget?.fqbn ?? null;
+    const sketchFolder = path.dirname(uri.fsPath);
+    output.appendLine(`[clangd] New sketch detected: ${uri.fsPath}`);
+    void refreshIntelliSense({ sketchFolder, fqbn, sidecarPath, output, silent: true });
+  });
+  context.subscriptions.push(inoWatcher);
+
   // ── First-install setup: apply the Grease theme + move Activity Bar to top.
   //    The key is versioned so future major updates can re-apply themes if needed.
   vscode.workspace
@@ -211,8 +224,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
   // ── arduino-cli presence check ──────────────────────────────────────────
   //    If the CLI is missing, show a one-time warning with the right install
-  //    command for the current OS. Otherwise turn on unsafe library install
-  //    so older GitHub libraries don't fail with a "this isn't a valid lib" error.
+  //    command for the current OS.
   {
     const check = await runArduinoCli(["version"]);
     if (!check.success && (check.stderr?.includes("ENOENT") || check.exitCode === null)) {
@@ -231,8 +243,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
           vscode.Uri.parse("https://arduino.github.io/arduino-cli/latest/installation/"),
         );
       }
-    } else {
-      await enableUnsafeInstall();
     }
   }
 
@@ -438,18 +448,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     }
   };
 
-  const checkArduinoCliProcess = (): Promise<boolean> =>
-    new Promise(resolve => {
-      // pgrep on macOS only returns PIDs, not full command lines — use ps/PowerShell instead.
-      const cmd = process.platform === "win32"
-        ? 'powershell -NoProfile -Command "Get-CimInstance Win32_Process | Select-Object -ExpandProperty CommandLine"'
-        : "ps -eo args";
-      require("child_process").exec(cmd, { timeout: 3000 }, (err: Error | null, stdout: string) => {
-        if (err) return resolve(false);
-        resolve(/arduino-cli\s+(compile|upload)/.test(stdout));
-      });
-    });
-
   /** Hit `/state` and update the toolbar's health indicator. */
   const checkServerHealth = async (verbose = false): Promise<void> => {
     if (!serverProcess) {
@@ -465,10 +463,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       const ok = !!s.target;
       serverHealthy = ok;
 
-      const wasActive = lastServerState?.uploading || lastServerState?.compiling || lastServerState?.serial?.isOpen || lastServerState?._cliActive;
-      const hasCliProcess = await checkArduinoCliProcess();
-      const isActive  = s.uploading || s.compiling || s.serial?.isOpen || hasCliProcess || s.agentActive;
-      s._cliActive = hasCliProcess;
+      const wasActive = lastServerState?.uploading || lastServerState?.compiling || lastServerState?.serial?.isOpen;
+      const isActive  = s.uploading || s.compiling || s.serial?.isOpen || s.agentActive;
       if (isActive)       toolbar.view?.webview.postMessage({ type: "rainState", state: "thrust" });
       else if (wasActive) toolbar.view?.webview.postMessage({ type: "rainState", state: "idle" });
       lastServerState = s;
@@ -481,10 +477,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       }
 
       if (!ok) {
-        output.appendLine("Problem with MCP Server");
+        output.appendLine("Problem with Grease Server");
         sawServerProblem = true;
       } else if (sawServerProblem) {
-        output.appendLine("MCP Server recovered.");
+        output.appendLine("Grease Server recovered.");
         sawServerProblem = false;
       }
       if (verbose) {
@@ -492,7 +488,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       }
     } catch (e) {
       serverHealthy = false;
-      output.appendLine("Problem with MCP Server");
+      output.appendLine("Problem with Grease Server");
       if (verbose) {
         output.appendLine(
           `Server health check failed: ${e instanceof Error ? e.message : String(e)}`,
@@ -778,7 +774,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     }
     // Log the user-facing path (the .ino they're editing), not the temp copy.
     const displayPath = prepared.isTemp ? prepared.originalIno! : sketchPath;
-    output.appendLine(`$ arduino-cli compile --fqbn ${fqbn} "${displayPath}"`);
+    output.appendLine(`Compiling "${displayPath}"...`);
     if (prepared.isTemp) {
       output.appendLine(
         `  (staged into temp sketch folder: ${sketchPath} — original folder name '${path.basename(
@@ -786,10 +782,16 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         )}' doesn't match .ino basename '${path.basename(prepared.mainIno, ".ino")}')`,
       );
     }
-    const res = await runArduinoCli(["compile", "--fqbn", fqbn, sketchPath], sketchPath);
-    output.appendLine(res.stdout);
-    output.appendLine(res.stderr);
-    if (!res.success) {
+    let res: { ok: boolean; stdout: string; stderr: string };
+    try {
+      res = await postCompile(sketchPath);
+    } catch (e) {
+      vscode.window.showErrorMessage("Arduino Grease: Compile failed — server unreachable.");
+      return { ok: false };
+    }
+    output.appendLine(res.stdout ?? "");
+    output.appendLine(res.stderr ?? "");
+    if (!res.ok) {
       // Parse `file:line:col: error: message` into VS Code Diagnostics.
       const diagMap = new Map<string, vscode.Diagnostic[]>();
       const errorRegex = /^(.+):([0-9]+):([0-9]+):\s*(error|warning):\s*(.+)$/gm;
@@ -867,20 +869,23 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       return false;
     }
     const displayPath = prepared.isTemp ? prepared.originalIno! : sketchPath;
-    output.appendLine(`$ arduino-cli upload -p ${port} --fqbn ${fqbn} "${displayPath}"`);
-    toolbar.view?.webview.postMessage({ type: "rainState", state: "thrust" });
-    const res = await runArduinoCli(
-      ["upload", "-p", port, "--fqbn", fqbn, sketchPath],
-      sketchPath,
-    );
-    output.appendLine(res.stdout);
-    output.appendLine(res.stderr);
-    toolbar.view?.webview.postMessage({ type: "uploadResult", success: res.success });
-    if (!res.success) {
+    output.appendLine(`Uploading "${displayPath}"...`);
+    let res: { ok: boolean; stdout: string; stderr: string };
+    try {
+      res = await postUpload(sketchPath);
+    } catch (e) {
+      vscode.window.showErrorMessage("Arduino Grease: Upload failed — server unreachable.");
+      return false;
+    }
+    output.appendLine(res.stdout ?? "");
+    output.appendLine(res.stderr ?? "");
+    toolbar.view?.webview.postMessage({ type: "uploadResult", success: res.ok });
+    if (!res.ok) {
       vscode.window.showErrorMessage("Arduino Grease: Upload failed (see Output).");
       return false;
     }
     vscode.window.showInformationMessage("Arduino Grease: Upload succeeded.");
+    void refreshIntelliSense({ sketchFolder: sketchPath, fqbn, sidecarPath, output, silent: true });
     return true;
   };
 
@@ -898,7 +903,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     if (programmer) {
       args.push("-P", programmer);
     }
+    try { await signalThrust(); } catch { /* server may be starting */ }
     const up = await runArduinoCli(args);
+    try { await signalIdle(); } catch { /* ignore */ }
     output.appendLine(up.stdout);
     output.appendLine(up.stderr);
     if (!up.success) {

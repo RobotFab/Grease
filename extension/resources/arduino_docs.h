@@ -19,6 +19,11 @@
 
 #include <stdint.h>
 #include <stddef.h>
+#include <math.h>
+
+#ifndef boolean
+typedef bool boolean;
+#endif
 
 // ── Self-sufficient defaults ──────────────────────────────────────────────
 // These let hover work even when Arduino.h isn't reachable on the include
@@ -71,6 +76,41 @@
 #define LED_BUILTIN 13
 #endif
 
+#ifndef PI
+/** @brief π (3.14159…). */
+#define PI 3.1415926535897932384626433832795
+/** @brief π / 2 (1.5707…). */
+#define HALF_PI 1.5707963267948966192313216916398
+/** @brief 2π (6.2831…). */
+#define TWO_PI 6.283185307179586476925286766559
+/** @brief Multiply degrees by this to convert to radians. */
+#define DEG_TO_RAD 0.017453292519943295769236907684886
+/** @brief Multiply radians by this to convert to degrees. */
+#define RAD_TO_DEG 57.295779513082320876798154814105
+/** @brief Euler's number e (2.71828…). */
+#define EULER 2.718281828459045235360287471352
+#endif
+
+#ifndef round
+/** @brief Round `x` to the nearest integer (returns `long`). */
+#define round(x) ((x) >= 0 ? (long)((x) + 0.5) : (long)((x) - 0.5))
+#endif
+
+#ifndef radians
+/** @brief Convert degrees to radians. Equivalent to `(deg) * DEG_TO_RAD`. */
+#define radians(deg) ((deg) * DEG_TO_RAD)
+#endif
+
+#ifndef degrees
+/** @brief Convert radians to degrees. Equivalent to `(rad) * RAD_TO_DEG`. */
+#define degrees(rad) ((rad) * RAD_TO_DEG)
+#endif
+
+#ifndef bitToggle
+/** @brief Toggle (flip) bit `b` of variable `x`. */
+#define bitToggle(x, b) ((x) ^= (1UL << (b)))
+#endif
+
 // ── Free functions ────────────────────────────────────────────────────────
 //
 // These are declared at file scope (no `extern "C"`). The Arduino preprocessor
@@ -79,6 +119,28 @@
 // path, both declarations refer to the same symbol and clangd merges the
 // comments. When no core is on the path, the declaration below is what
 // clangd resolves and the comment is the hover content.
+
+/**
+ * @brief User-defined initialization function — runs once at power-on or reset.
+ *
+ * Put everything that only needs to happen once here: `pinMode()` calls,
+ * `Serial.begin()`, sensor initialization, etc. Arduino calls `setup()`
+ * automatically before the first call to `loop()`.
+ *
+ * Reference: https://docs.arduino.cc/language-reference/en/structure/sketch/setup/
+ */
+void setup(void);
+
+/**
+ * @brief User-defined main function — runs repeatedly after `setup()` returns.
+ *
+ * Arduino calls `loop()` over and over for the lifetime of the program.
+ * Use `millis()`-based timing rather than `delay()` so the board stays
+ * responsive to sensors and serial input between actions.
+ *
+ * Reference: https://docs.arduino.cc/language-reference/en/structure/sketch/loop/
+ */
+void loop(void);
 
 /**
  * @brief Configure a digital pin as input, output, or input with pull-up.
@@ -443,6 +505,173 @@ long random(long min, long max);
 #define highByte(w) ((uint8_t)((w) >> 8))
 #endif
 
+// ── Math functions (from <math.h>, always available in Arduino) ───────────
+
+/**
+ * @brief Sine of `x` (x in radians).
+ * @return Value in [-1, 1].
+ * Reference: https://docs.arduino.cc/language-reference/en/functions/math/sin/
+ */
+double sin(double x);
+
+/**
+ * @brief Cosine of `x` (x in radians).
+ * @return Value in [-1, 1].
+ * Reference: https://docs.arduino.cc/language-reference/en/functions/math/cos/
+ */
+double cos(double x);
+
+/**
+ * @brief Tangent of `x` (x in radians).
+ * Reference: https://docs.arduino.cc/language-reference/en/functions/math/tan/
+ */
+double tan(double x);
+
+/**
+ * @brief Square root of `x`. Returns NaN for negative inputs.
+ * Reference: https://docs.arduino.cc/language-reference/en/functions/math/sqrt/
+ */
+double sqrt(double x);
+
+/**
+ * @brief `base` raised to the power `exponent`.
+ *
+ * @param base      The base value.
+ * @param exponent  The exponent.
+ * Reference: https://docs.arduino.cc/language-reference/en/functions/math/pow/
+ */
+double pow(double base, double exponent);
+
+/**
+ * @brief Natural logarithm of `x` (log base e).
+ * @return NaN for x ≤ 0.
+ */
+double log(double x);
+
+/**
+ * @brief e raised to the power `x` (inverse of `log()`).
+ */
+double exp(double x);
+
+/**
+ * @brief Absolute value of `x` as a floating-point number.
+ *
+ * Use this instead of `abs()` for `float`/`double` — `abs()` truncates to `int`.
+ */
+double fabs(double x);
+
+/**
+ * @brief Smallest integer value not less than `x` (round up).
+ * @return Result as a `double`.
+ */
+double ceil(double x);
+
+/**
+ * @brief Largest integer value not greater than `x` (round down).
+ * @return Result as a `double`.
+ */
+double floor(double x);
+
+// ── Character classification (from WCharacter.h) ─────────────────────────
+// These thin wrappers around <ctype.h> are always available in Arduino.
+// Return boolean (true/false); accept any character as an int.
+
+/**
+ * @brief True if `c` is a letter (a–z or A–Z).
+ * Reference: https://docs.arduino.cc/language-reference/en/functions/characters/isalpha/
+ */
+boolean isAlpha(int c);
+
+/**
+ * @brief True if `c` is a letter or decimal digit.
+ * Reference: https://docs.arduino.cc/language-reference/en/functions/characters/isalphanumeric/
+ */
+boolean isAlphaNumeric(int c);
+
+/**
+ * @brief True if `c` is a 7-bit ASCII character (0–127).
+ * Reference: https://docs.arduino.cc/language-reference/en/functions/characters/isascii/
+ */
+boolean isAscii(int c);
+
+/**
+ * @brief True if `c` is a control character (ASCII 0–31 or 127).
+ * Reference: https://docs.arduino.cc/language-reference/en/functions/characters/iscontrol/
+ */
+boolean isControl(int c);
+
+/**
+ * @brief True if `c` is a decimal digit (0–9).
+ * Reference: https://docs.arduino.cc/language-reference/en/functions/characters/isdigit/
+ */
+boolean isDigit(int c);
+
+/**
+ * @brief True if `c` has a graphical representation (printable and not space).
+ * Reference: https://docs.arduino.cc/language-reference/en/functions/characters/isgraph/
+ */
+boolean isGraph(int c);
+
+/**
+ * @brief True if `c` is a hexadecimal digit (0–9, a–f, or A–F).
+ * Reference: https://docs.arduino.cc/language-reference/en/functions/characters/ishexadecimaldigit/
+ */
+boolean isHexadecimalDigit(int c);
+
+/**
+ * @brief True if `c` is a lower-case letter (a–z).
+ * Reference: https://docs.arduino.cc/language-reference/en/functions/characters/islowercase/
+ */
+boolean isLowerCase(int c);
+
+/**
+ * @brief True if `c` is a printable character (including space).
+ * Reference: https://docs.arduino.cc/language-reference/en/functions/characters/isprintable/
+ */
+boolean isPrintable(int c);
+
+/**
+ * @brief True if `c` is a punctuation character.
+ * Reference: https://docs.arduino.cc/language-reference/en/functions/characters/ispunct/
+ */
+boolean isPunct(int c);
+
+/**
+ * @brief True if `c` is a space, tab, newline, carriage return, form feed, or vertical tab.
+ * Reference: https://docs.arduino.cc/language-reference/en/functions/characters/isspace/
+ */
+boolean isSpace(int c);
+
+/**
+ * @brief True if `c` is an upper-case letter (A–Z).
+ * Reference: https://docs.arduino.cc/language-reference/en/functions/characters/isuppercase/
+ */
+boolean isUpperCase(int c);
+
+/**
+ * @brief True if `c` is a whitespace character (space or horizontal tab).
+ * Reference: https://docs.arduino.cc/language-reference/en/functions/characters/iswhitespace/
+ */
+boolean isWhitespace(int c);
+
+/**
+ * @brief Convert `c` to its ASCII value (clears bit 7). No-op for 7-bit chars.
+ * Reference: https://docs.arduino.cc/language-reference/en/functions/characters/toascii/
+ */
+int toAscii(int c);
+
+/**
+ * @brief Convert `c` to lower case. Non-letters are returned unchanged.
+ * Reference: https://docs.arduino.cc/language-reference/en/functions/characters/tolowercase/
+ */
+int toLowerCase(int c);
+
+/**
+ * @brief Convert `c` to upper case. Non-letters are returned unchanged.
+ * Reference: https://docs.arduino.cc/language-reference/en/functions/characters/touppercase/
+ */
+int toUpperCase(int c);
+
 // ── Stub C++ classes for Serial / Stream / Print ──────────────────────────
 //
 // Only declared when no real <Arduino.h> is on the include path — i.e.
@@ -649,5 +878,81 @@ public:
 
 /** @brief The default hardware UART. Use this for `Serial.print()` etc. */
 extern HardwareSerial Serial;
+
+/**
+ * @brief Controls a hobby servo motor. Supports standard servos (0–180°)
+ *        and continuous-rotation servos.
+ *
+ * Each Servo object controls one servo. Up to 12 servos can be used on
+ * most boards (disables PWM on pins 9 and 10 on AVR Uno/Nano).
+ *
+ * Reference: https://docs.arduino.cc/libraries/servo/
+ */
+class Servo {
+public:
+  /**
+   * @brief Attach a servo to `pin`. Sets `pinMode` automatically.
+   * @return Channel number, or 0 on failure.
+   */
+  uint8_t attach(int pin);
+
+  /**
+   * @brief Attach a servo to `pin` with custom pulse-width limits (µs).
+   *
+   * @param pin  PWM-capable output pin.
+   * @param min  Pulse width (µs) for 0°. Default 544.
+   * @param max  Pulse width (µs) for 180°. Default 2400.
+   */
+  uint8_t attach(int pin, int min, int max);
+
+  /**
+   * @brief Detach the servo from its pin. Stops pulses; pin becomes available.
+   */
+  void detach();
+
+  /**
+   * @brief Write a position (0–180°) or pulse width (≥ 200 µs) to the servo.
+   *
+   * Values < 200 are treated as degrees; values ≥ 200 as microseconds.
+   *
+   * @param value  Angle in degrees (0–180) or pulse width in microseconds.
+   *
+   * Reference: https://docs.arduino.cc/libraries/servo/#write
+   */
+  void write(int value);
+
+  /**
+   * @brief Write a pulse width directly in microseconds.
+   *
+   * Bypasses the degree mapping. Useful for fine control or continuous-rotation servos.
+   *
+   * @param value  Pulse width in microseconds (typically 1000–2000).
+   *
+   * Reference: https://docs.arduino.cc/libraries/servo/#writemicroseconds
+   */
+  void writeMicroseconds(int value);
+
+  /**
+   * @brief Read the last angle written (0–180°).
+   * @return Degrees (0–180), or 90 if `writeMicroseconds()` was used.
+   *
+   * Reference: https://docs.arduino.cc/libraries/servo/#read
+   */
+  int read();
+
+  /**
+   * @brief Read the last pulse width written in microseconds.
+   *
+   * Reference: https://docs.arduino.cc/libraries/servo/#readmicroseconds
+   */
+  int readMicroseconds();
+
+  /**
+   * @brief True if this Servo is currently attached to a pin.
+   *
+   * Reference: https://docs.arduino.cc/libraries/servo/#attached
+   */
+  bool attached();
+};
 
 #endif // !__has_include(<Arduino.h>)

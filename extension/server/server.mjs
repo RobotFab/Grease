@@ -3,7 +3,6 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
-import { exec } from "node:child_process";
 
 import { createMcpExpressApp } from "@modelcontextprotocol/express";
 import { NodeStreamableHTTPServerTransport } from "@modelcontextprotocol/node";
@@ -11,7 +10,7 @@ import { McpServer } from "@modelcontextprotocol/server";
 import express from "express";
 import { z } from "zod";
 
-import { detectBoards, compileSketch, uploadSketch, enableUnsafeInstall, installLibrary } from "./lib/arduinoCli.mjs";
+import { detectBoards, compileSketch, uploadSketch } from "./lib/arduinoCli.mjs";
 import { SerialManager } from "./lib/serialManager.mjs";
 import { usb } from "usb";
 
@@ -100,26 +99,9 @@ const state = {
   portChangeVersion: 0,
 };
 
-// Detect arduino-cli compile/upload processes spawned by any agent or shell.
-// Uses ps -eo args (macOS/Linux) or Get-CimInstance (Windows) — both output
-// full command lines, unlike pgrep which only returns PIDs on macOS.
-function checkCliProcesses() {
-  return new Promise(resolve => {
-    const cmd = process.platform === "win32"
-      ? 'powershell -NoProfile -Command "Get-CimInstance Win32_Process | Select-Object -ExpandProperty CommandLine"'
-      : "ps -eo args";
-    exec(cmd, { timeout: 3000 }, (err, stdout) => {
-      if (err) return resolve({ compile: false, upload: false });
-      resolve({
-        compile: /arduino-cli\s+compile/.test(stdout),
-        upload:  /arduino-cli\s+upload/.test(stdout),
-      });
-    });
-  });
-}
-
-let _cliCompiling = false;
-let _cliUploading = false;
+let _serverCompiling = false;
+let _serverUploading = false;
+let _thrustTimer  = null;
 
 let _usbDebounce = null;
 usb.on("attach", () => {
@@ -318,12 +300,12 @@ async function main() {
       }
       state.sketchPath = effectiveSketchPath;
       state.compiling = true;
-      state._mcpCompiling = true;
+      _serverCompiling = true;
       try {
         const result = await compileSketch({ fqbn: effectiveFqbn, sketchPath: effectiveSketchPath });
         return asTextResult({ ...result, sketchPath: effectiveSketchPath });
       } finally {
-        setTimeout(() => { state.compiling = false; state._mcpCompiling = false; }, 2500);
+        setTimeout(() => { state.compiling = false; _serverCompiling = false; }, 2500);
       }
     }
   );
@@ -350,12 +332,12 @@ async function main() {
       }
       state.sketchPath = effectiveSketchPath;
       state.uploading = true;
-      state._mcpUploading = true;
+      _serverUploading = true;
       try {
         const result = await uploadSketch({ fqbn: effectiveFqbn, port: effectivePort, sketchPath: effectiveSketchPath });
         return asTextResult({ ...result, sketchPath: effectiveSketchPath });
       } finally {
-        setTimeout(() => { state.uploading = false; state._mcpUploading = false; }, 2500);
+        setTimeout(() => { state.uploading = false; _serverUploading = false; }, 2500);
       }
     }
   );
@@ -433,7 +415,9 @@ async function main() {
   // All routes except /health require the shared auth key.
   app.use((req, res, next) => {
     if (req.path === "/health") return next();        // health check is always open
-    if (!AUTH_KEY) return next();                     // dev fallback: no key set = open
+    if (!AUTH_KEY) {
+      return res.status(500).json({ ok: false, error: "Server misconfigured: auth key not initialized" });
+    }
     const provided = req.headers["x-grease-auth"];
     if (provided !== AUTH_KEY) {
       return res.status(401).json({ ok: false, error: "Unauthorized" });
@@ -442,7 +426,7 @@ async function main() {
   });
 
   // ── Agent Activity Indicator — set agentActive on hardware REST requests ────
-  const HARDWARE_REST_PATHS = new Set(["/detect", "/target", "/serial/open", "/serial/close", "/serial/write", "/serial/read"]);
+  const HARDWARE_REST_PATHS = new Set(["/detect", "/target", "/compile", "/upload", "/serial/open", "/serial/close", "/serial/write", "/serial/read"]);
   app.use((req, res, next) => {
     if (HARDWARE_REST_PATHS.has(req.path)) {
       state.agentActive = true;
@@ -499,15 +483,58 @@ async function main() {
     res.json({ ok: true, target: state.target });
   });
 
+  app.post("/compile", async (req, res) => {
+    const { sketchPath } = req.body ?? {};
+    const fqbn = state.target.fqbn;
+    if (!fqbn) return res.status(400).json({ ok: false, error: "No board target set. Call POST /target first." });
+    const effectiveSketchPath = resolveSketchPath(sketchPath);
+    if (!fs.existsSync(effectiveSketchPath))
+      return res.status(400).json({ ok: false, error: `Sketch path not found: ${effectiveSketchPath}` });
+    state.sketchPath = effectiveSketchPath;
+    state.compiling = true;
+    _serverCompiling = true;
+    try {
+      const result = await compileSketch({ fqbn, sketchPath: effectiveSketchPath });
+      setTimeout(() => { state.compiling = false; _serverCompiling = false; }, 2500);
+      res.json({ ok: result.success, ...result });
+    } catch (e) {
+      state.compiling = false;
+      _serverCompiling = false;
+      res.status(500).json({ ok: false, error: e?.message ?? String(e) });
+    }
+  });
+
+  app.post("/upload", async (req, res) => {
+    const { sketchPath } = req.body ?? {};
+    const fqbn = state.target.fqbn;
+    const port = state.target.port;
+    if (!fqbn || !port) return res.status(400).json({ ok: false, error: "No board/port target set. Call POST /target first." });
+    const effectiveSketchPath = resolveSketchPath(sketchPath);
+    if (!fs.existsSync(effectiveSketchPath))
+      return res.status(400).json({ ok: false, error: `Sketch path not found: ${effectiveSketchPath}` });
+    state.sketchPath = effectiveSketchPath;
+    state.uploading = true;
+    _serverUploading = true;
+    try {
+      const result = await uploadSketch({ fqbn, port, sketchPath: effectiveSketchPath });
+      setTimeout(() => { state.uploading = false; _serverUploading = false; }, 2500);
+      res.json({ ok: result.success, ...result });
+    } catch (e) {
+      state.uploading = false;
+      _serverUploading = false;
+      res.status(500).json({ ok: false, error: e?.message ?? String(e) });
+    }
+  });
+
   app.post("/thrust", (_req, res) => {
     state.compiling = true;
-    clearTimeout(state._thrustTimer);
-    state._thrustTimer = setTimeout(() => { state.compiling = false; }, 10000);
+    clearTimeout(_thrustTimer);
+    _thrustTimer = setTimeout(() => { state.compiling = false; }, 10000);
     res.json({ ok: true, state: "thrust" });
   });
 
   app.post("/idle", (_req, res) => {
-    clearTimeout(state._thrustTimer);
+    clearTimeout(_thrustTimer);
     state.compiling = false;
     state.uploading = false;
     res.json({ ok: true, state: "idle" });
@@ -523,39 +550,14 @@ async function main() {
   });
 
   const httpServer = http.createServer(app);
-  let cliWatcher;
   httpServer.listen(PORT, HOST, () => {
     // eslint-disable-next-line no-console
     console.log(`Arduino MCP server listening on http://${HOST}:${PORT} (MCP at /mcp)`);
     // eslint-disable-next-line no-console
-    console.log(`Arduino MCP auth key: ${AUTH_KEY}`);
-
-    void enableUnsafeInstall().catch(() => {});
-
-    // Watch for arduino-cli processes spawned by any agent or shell (AI-agent-agnostic).
-    cliWatcher = setInterval(async () => {
-      const { compile, upload } = await checkCliProcesses();
-
-      if (compile && !_cliCompiling) {
-        _cliCompiling = true;
-        if (!state._mcpCompiling) state.compiling = true;
-      } else if (!compile && _cliCompiling) {
-        _cliCompiling = false;
-        if (!state._mcpCompiling) state.compiling = false;
-      }
-
-      if (upload && !_cliUploading) {
-        _cliUploading = true;
-        if (!state._mcpUploading) state.uploading = true;
-      } else if (!upload && _cliUploading) {
-        _cliUploading = false;
-        if (!state._mcpUploading) state.uploading = false;
-      }
-    }, 500);
+    console.log(`Auth key stored at: ${_authStore}`);
   });
 
   const shutdown = async () => {
-    clearInterval(cliWatcher);
     try { await server.close(); } catch { /* ignore */ }
     try { await serial.close(); } catch { /* ignore */ }
     httpServer.close(() => process.exit(0));

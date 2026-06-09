@@ -33,7 +33,7 @@
 import * as vscode from "vscode";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { runArduinoCli } from "../arduinoCli";
+import { runArduinoCli, enableUnsafeInstall } from "../arduinoCli";
 import { asRows, uniqueRows, type ExampleRow } from "../ui/examplesPanel";
 import { parseInstalledBoards, parseLibraries } from "../ui/managersPanel";
 
@@ -238,6 +238,7 @@ export class ArduinoToolbarViewProvider implements vscode.WebviewViewProvider {
           return;
         }
         this.output.appendLine(`[Mngrs] Installing library ${name}...`);
+        await enableUnsafeInstall();
         const res = await runArduinoCli(["lib", "install", name]);
         this.output.appendLine(res.stdout);
         this.output.appendLine(res.stderr);
@@ -258,6 +259,7 @@ export class ArduinoToolbarViewProvider implements vscode.WebviewViewProvider {
         if (!input) return;
         this.output.appendLine(`[Mngrs] Installing library from Github: ${input}...`);
         const url = `https://github.com/${input}.git`;
+        await enableUnsafeInstall();
         const res = await runArduinoCli(["lib", "install", "--git-url", url]);
         this.output.appendLine(res.stdout);
         this.output.appendLine(res.stderr);
