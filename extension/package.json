@@ -2,7 +2,7 @@
   "name": "arduino-grease",
   "displayName": "Arduino Grease",
   "publisher": "RobotFab",
-  "version": "1.0.10",
+  "version": "1.0.11",
   "description": "Arduino tooling + MCP server for agentic debugging inside VS Code, Cursor, and Antigravity.",
   "releaseNotes": "v1.0.9 — MCP auto-sync fix: existing IDE config entries are now refreshed whenever the server URL/port changes, not only when the auth key changes (previously a port change on restart left ~/.claude/settings.json, ~/.cursor/mcp.json, and the Windsurf config pointing at a dead port). Auth-key store relocated from ~/.grease-mcp-auth to ~/.grease/mcp-auth.json, with one-time migration from the legacy path. C++ IntelliSense: clangd (llvm-vs-code-extensions.vscode-clangd) is now an extensionDependency, so it auto-installs alongside Grease and powers hover/completion/go-to-definition on .ino files without any manual setup.",
   "main": "dist/extension.js",

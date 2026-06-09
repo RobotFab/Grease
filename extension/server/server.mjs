@@ -412,9 +412,11 @@ async function main() {
   app.use(express.json({ limit: "1mb" }));
 
   // ── Auth middleware ─────────────────────────────────────────────────────────
-  // All routes except /health require the shared auth key.
+  // /health and /mcp are open; all other routes require the shared auth key.
+  // /mcp enforces its own tool-level auth (see below).
   app.use((req, res, next) => {
-    if (req.path === "/health") return next();        // health check is always open
+    if (req.path === "/health") return next();
+    if (req.path === "/mcp")    return next();
     if (!AUTH_KEY) {
       return res.status(500).json({ ok: false, error: "Server misconfigured: auth key not initialized" });
     }
@@ -540,8 +542,22 @@ async function main() {
     res.json({ ok: true, state: "idle" });
   });
 
+  const PUBLIC_MCP_TOOLS = new Set(["readSkill", "getState"]);
+
   app.post("/mcp", async (req, res) => {
     const requestBody = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
+    const toolName = requestBody?.params?.name;
+    const isToolCall = requestBody?.method === "tools/call";
+    if (isToolCall && toolName && !PUBLIC_MCP_TOOLS.has(toolName)) {
+      const provided = req.headers["x-grease-auth"];
+      if (!AUTH_KEY || provided !== AUTH_KEY) {
+        return res.status(401).json({
+          jsonrpc: "2.0",
+          id: requestBody.id ?? null,
+          error: { code: -32001, message: `Unauthorized: '${toolName}' requires x-grease-auth header.` },
+        });
+      }
+    }
     try {
       await transport.handleRequest(req, res, requestBody);
     } catch (error) {
