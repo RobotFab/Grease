@@ -36,11 +36,6 @@ const serverCtx = await esbuild.context({
   banner: {
     js: "import { createRequire } from 'module'; const require = createRequire(import.meta.url);",
   },
-  external: [
-    "usb",
-    "serialport",
-    "@serialport/*",
-  ],
 });
 
 if (watch) {

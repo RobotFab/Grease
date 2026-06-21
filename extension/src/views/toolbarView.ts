@@ -54,10 +54,13 @@ export interface ToolbarState {
 export interface ToolbarActions {
   chooseTarget: (fqbn: string) => Promise<void>;
   uploadFirmwareToTarget: (fqbn: string) => Promise<void>;
+  recoveryUpload: () => Promise<void>;
   serialOff: () => Promise<void>;
   cycleAccent: (color: string) => Promise<void>;
-  /** Called after a library install completes successfully — used to refresh clangd. */
+  /** Called after a library install completes successfully. */
   onLibraryInstalled?: () => Promise<void>;
+  /** Called after a board core is installed via the Managers tab — triggers immediate re-detection. */
+  onBoardInstalled?: () => Promise<void>;
 }
 
 export class ArduinoToolbarViewProvider implements vscode.WebviewViewProvider {
@@ -87,6 +90,7 @@ export class ArduinoToolbarViewProvider implements vscode.WebviewViewProvider {
 
   resolveWebviewView(view: vscode.WebviewView): void {
     this.view = view;
+    view.title = "";
     view.webview.options = {
       enableScripts: true,
       localResourceRoots: [vscode.Uri.joinPath(this.context.extensionUri, "resources")],
@@ -212,6 +216,8 @@ export class ArduinoToolbarViewProvider implements vscode.WebviewViewProvider {
         }
         this.output.appendLine(`[Mngrs] Upload firmware to target ${fqbn}...`);
         await this.actions.uploadFirmwareToTarget(fqbn);
+      } else if (msg.type === "recoveryUpload") {
+        await this.actions.recoveryUpload();
       } else if (msg.type === "libList") {
         this.output.appendLine("[Mngrs] Updating library index...");
         const upd = await runArduinoCli(["lib", "update-index"]);
@@ -246,8 +252,6 @@ export class ArduinoToolbarViewProvider implements vscode.WebviewViewProvider {
           post({ type: "mgrError", error: res.stderr || res.stdout });
         } else {
           vscode.window.showInformationMessage(`Arduino Grease: Library ${name} installed.`);
-          // New for v1.0.9: a fresh library means new headers — refresh clangd
-          // so the new symbols become hoverable immediately.
           if (this.actions.onLibraryInstalled) {
             await this.actions.onLibraryInstalled();
           }
@@ -299,6 +303,7 @@ export class ArduinoToolbarViewProvider implements vscode.WebviewViewProvider {
           const boards2 = await runArduinoCli(["core", "list", "--json"]);
           if (boards2.success)
             post({ type: "boards", rows: parseInstalledBoards(boards2.stdout) });
+          if (this.actions.onBoardInstalled) await this.actions.onBoardInstalled();
         }
       } else if (msg.type === "serialOff") {
         await this.actions.serialOff();
@@ -414,6 +419,7 @@ export class ArduinoToolbarViewProvider implements vscode.WebviewViewProvider {
           <div class="mgr-card">
             <div class="mgr-top-row">
               <a class="c-std" id="chooseTargetBtn" href="#" onclick="event.preventDefault()">||Choose as target||</a>
+              <a class="c-coral" id="recoveryUploadBtn" href="#" onclick="event.preventDefault()">||Recovery Upload||</a>
             </div>
             <input id="boardQuery" class="boardQuery" placeholder="arduino, esp32, rp2040..." />
             <div class="mgr-list" id="boardsList"></div>
@@ -473,7 +479,7 @@ export class ArduinoToolbarViewProvider implements vscode.WebviewViewProvider {
             <p style="margin-top: 8px;">If your AI Tether is active and "arduino-cli" is on PATH, its time to make sure your AI Agent "knows" it can use it. Try the following as a Prompt: </p>
             <br>
             <div style="margin-top: 8px; color: var(--ink); border-left: 2px solid var(--muted); padding-left: 8px;">
-              Use &lt;IDE-Extension&gt; Arduino Grease &lt;/IDE-Extension&gt; to filter incoming A0 signals: read them via its MCP server, generate a new sketch, upload it. Check dist/SKILL.md and dist/server.mjs inside the extension folder for REST endpoints and skills. GET /state returns the current board/port. Auth key lives in ~/.grease/mcp-auth.json — send it as the x-grease-auth header.
+              Use &lt;IDE-Extension&gt; Arduino Grease &lt;/IDE-Extension&gt; to filter incoming A0 signals: read them via its MCP server, generate a new sketch, upload it. Check dist/SKILL.md and dist/server.mjs inside the extension folder for REST endpoints and skills. GET /state returns the current board/port. Auth key lives in ~/.grease/extension/mcp-auth.json — send it as the x-grease-auth header.
             </div>
             <br>
             <p> When running your sketches, try to use the following XML tags to emphasize goals, electronic hardware, mechanical components or control preferences. One example below:</p>
@@ -882,6 +888,7 @@ $("installBoardBtn")?.addEventListener("click", () => {
   }
 });
 $("chooseTargetBtn")?.addEventListener("click", () => vscode.postMessage({ type: "chooseTarget", fqbn: selectedFqbn }));
+$("recoveryUploadBtn")?.addEventListener("click", () => vscode.postMessage({ type: "recoveryUpload" }));
 $("libListBtn")?.addEventListener("click", () => vscode.postMessage({ type: "libList" }));
 $("libQuery")?.addEventListener("keydown", (e) => {
   if(e.key === 'Enter') {

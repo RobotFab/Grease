@@ -19,7 +19,12 @@ Arduino tooling + a bundled **Grease Server** for **agentic hardware debugging**
 - Auto-selects a target if exactly one recognized board is present; otherwise prompts you to pick.
 - Adds Activity Bar actions for Verify/Upload/Serial Monitor/Serial Plotter/Examples/Managers/Board Template, to create an user friendly environment.
 
-### v1.0.5 — New Features
+### v1.0.11 — Latest Changes
+- **Upload pipeline fixed**: The bundled `dist/server.mjs` was missing the `/compile` and `/upload` REST routes, causing all agent upload attempts to fail silently. Rebuilt from source.
+- **Process timeout**: `runProcess` now kills unresponsive `arduino-cli` / `bossac` processes after 30 s (SIGKILL), preventing the serial port from locking indefinitely on SAMD boards.
+- **MCP open endpoint**: `/mcp` no longer requires authentication. `readSkill` and `getState` are public so any agent loads the skill file at session start without needing a current auth key. All other tools still require `x-grease-auth`.
+
+### v1.0.5 — Previous Features
 - **Arduino Syntax Highlighting**: Full TextMate grammar for `.ino` files with Arduino-specific functions, types, and constants.
 - **clangd IntelliSense Bridge**: Generates `compile_commands.json` for semantic understanding; creates diagnostic collection for errors.
 - **Auto Board Core Detection**: Detects FQBN on board connection and auto-prompts to install missing board cores.
@@ -42,7 +47,7 @@ npm run build
 npx @vscode/vsce package --skip-license --allow-missing-repository
 ```
 
-2. Install the generated `arduino-grease-1.0.5.vsix` from your IDE's extension installer (VS Code/Cursor/Antigravity/Other VS-based IDEs).
+2. Install the generated `arduino-grease-1.0.11.vsix` from your IDE's extension installer (VS Code/Cursor/Antigravity/Other VS-based IDEs).
 
 ### Credits
 

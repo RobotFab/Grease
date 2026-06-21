@@ -12,21 +12,30 @@ import { z } from "zod";
 
 import { detectBoards, compileSketch, uploadSketch } from "./lib/arduinoCli.mjs";
 import { SerialManager } from "./lib/serialManager.mjs";
-import { usb } from "usb";
 
 const PORT = Number(process.env.MCP_PORT || process.env.PORT || "3333");
 const HOST = process.env.MCP_HOST || "127.0.0.1";
 
+// ── Canonical sketchbook — all agent-created sketches live here ──────────────
+const SKETCHBOOK_DIR = path.join(os.homedir(), "Documents", "Grease");
+try { fs.mkdirSync(SKETCHBOOK_DIR, { recursive: true }); } catch (_e) {}
+
 // ── Shared Grease state directory (vendor-neutral, lives outside the extension
 //    folder so it survives version upgrades) ─────────────────────────────────
-const _greaseDir = path.join(os.homedir(), ".grease");
-try { fs.mkdirSync(_greaseDir, { recursive: true }); } catch (_e) {}
+const _greaseDir    = path.join(os.homedir(), ".grease");
+const _greaseExtDir = path.join(_greaseDir, "extension");
+try { fs.mkdirSync(_greaseExtDir, { recursive: true }); } catch (_e) {}
 
 // ── Stable auth key (persists across restarts and version updates) ───────────
-const _authStore       = path.join(_greaseDir, "mcp-auth.json");
-const _legacyAuthStore = path.join(os.homedir(), ".grease-mcp-auth");
+const _authStore       = path.join(_greaseExtDir, "mcp-auth.json");
+const _v1AuthStore     = path.join(_greaseDir, "mcp-auth.json");      // pre-ArduinoGrease
+const _legacyAuthStore = path.join(os.homedir(), ".grease-mcp-auth"); // pre-v1.0.9
 let AUTH_KEY;
 try { AUTH_KEY = JSON.parse(fs.readFileSync(_authStore, "utf8")).key || null; } catch (_e) {}
+if (!AUTH_KEY) {
+  // One-time migration from the v1.0.x location at ~/.grease/mcp-auth.json
+  try { AUTH_KEY = JSON.parse(fs.readFileSync(_v1AuthStore, "utf8")).key || null; } catch (_e) {}
+}
 if (!AUTH_KEY) {
   // One-time migration from the pre-v1.0.9 location at ~/.grease-mcp-auth
   try { AUTH_KEY = JSON.parse(fs.readFileSync(_legacyAuthStore, "utf8")).key || null; } catch (_e) {}
@@ -34,13 +43,16 @@ if (!AUTH_KEY) {
 if (!AUTH_KEY) { AUTH_KEY = process.env.MCP_AUTH_KEY || randomUUID(); }
 try {
   fs.writeFileSync(_authStore, JSON.stringify({ key: AUTH_KEY, port: PORT, updatedAt: new Date().toISOString() }));
+  if (fs.existsSync(_v1AuthStore)) {
+    try { fs.unlinkSync(_v1AuthStore); } catch (_e) {}
+  }
   if (fs.existsSync(_legacyAuthStore)) {
     try { fs.unlinkSync(_legacyAuthStore); } catch (_e) {}
   }
 } catch (_e) {}
 
-// ── SKILL.md — bundled copy is the canonical source; auto-deployed to ~/.grease/SKILL.md ──
-const _userSkill    = path.join(_greaseDir, "SKILL.md");
+// ── SKILL.md — bundled copy is the canonical source; auto-deployed to ~/.grease/extension/SKILL.md ──
+const _userSkill    = path.join(_greaseExtDir, "SKILL.md");
 const _bundledSkill = path.join(import.meta.dirname ?? path.dirname(new URL(import.meta.url).pathname), "SKILL.md");
 function _getSkillVersion(filePath) {
   try {
@@ -92,7 +104,7 @@ for (const cfgPath of _ideConfigs) {
 
 const state = {
   target: /** @type {{ port: string|null, fqbn: string|null }} */ ({ port: null, fqbn: null }),
-  sketchPath: process.cwd(),
+  sketchPath: SKETCHBOOK_DIR,
   uploading: false,
   compiling: false,
   agentActive: false,
@@ -102,24 +114,24 @@ const state = {
 let _serverCompiling = false;
 let _serverUploading = false;
 let _thrustTimer  = null;
-
-let _usbDebounce = null;
-usb.on("attach", () => {
-  if (state.uploading) return;
-  clearTimeout(_usbDebounce);
-  _usbDebounce = setTimeout(() => { state.portChangeVersion++; }, 1500);
-});
-usb.on("detach", () => {
-  if (state.uploading) return;
-  clearTimeout(_usbDebounce);
-  state.portChangeVersion++;
-});
+// Board attach/detach events previously came from the `usb` native package.
+// Detection is now handled entirely by the extension's 5-second arduino-cli
+// board-list polling loop, which increments portChangeVersion on its own.
 
 const serial = new SerialManager();
 
 function resolveSketchPath(sketchPath) {
   if (!sketchPath) return state.sketchPath;
   return path.resolve(sketchPath);
+}
+
+/** resolveSketchPath variant for agent (MCP) callers — confines to SKETCHBOOK_DIR. */
+function resolveAgentSketchPath(sketchPath) {
+  const resolved = resolveSketchPath(sketchPath);
+  if (resolved !== SKETCHBOOK_DIR && !resolved.startsWith(SKETCHBOOK_DIR + path.sep)) {
+    return { error: `Sketch path must be inside ${SKETCHBOOK_DIR}` };
+  }
+  return { resolved };
 }
 
 function asTextResult(obj) {
@@ -155,7 +167,7 @@ async function main() {
         "1. Call `readSkill` FIRST — every session, before any work.\n" +
         "2. For board or port questions → call `getState` immediately (returns fqbn + port).\n" +
         "3. Never guess board/port values. Never hardcode them.\n" +
-        "4. Auth key and port: ~/.grease/mcp-auth.json",
+        "4. Auth key and port: ~/.grease/extension/mcp-auth.json",
     },
     {
       capabilities: {
@@ -192,15 +204,15 @@ async function main() {
       } else if (neitherSet) {
         targetBlock =
           "\n\n---\n\n## Current Hardware Target\n\n" +
-          "> No board is currently selected. Call `detectBoards` to find connected hardware, " +
-          "then call `setTarget` with the correct port and fqbn before compiling or uploading.\n";
+          "> No board is currently selected. The Developer should connect a board and choose it " +
+          "in the Managers panel. Call `detectBoards` to see what is currently connected.\n";
       } else {
         targetBlock =
           "\n\n---\n\n## Current Hardware Target\n\n" +
           `- **Port:** \`${port ?? "(not set)"}\`\n` +
           `- **FQBN:** \`${fqbn ?? "(not set)"}\`\n\n` +
-          "> Target is partially configured. Call `detectBoards` then `setTarget` to supply " +
-          "the missing value before compiling or uploading.\n";
+          "> Target is partially configured. Call `detectBoards` to see connected boards. " +
+          "The Developer should supply the missing value via the Managers panel.\n";
       }
       return asTextResult({ skill: readSkillMd() + targetBlock, path: SKILL_PATH });
     }
@@ -252,22 +264,6 @@ async function main() {
   );
 
   server.registerTool(
-    "setTarget",
-    {
-      title: "Set Arduino target (port + fqbn)",
-      inputSchema: z.object({
-        port: z.string(),
-        fqbn: z.string(),
-      }).strict(),
-    },
-    async ({ port, fqbn }) => {
-      state.target.port = port;
-      state.target.fqbn = fqbn;
-      return asTextResult({ success: true, target: state.target });
-    }
-  );
-
-  server.registerTool(
     "getState",
     {
       title: "Get current board + port",
@@ -294,7 +290,9 @@ async function main() {
     async ({ sketchPath, fqbn }) => {
       const effectiveFqbn = fqbn || state.target.fqbn;
       if (!effectiveFqbn) return asTextResult({ success: false, error: "Target fqbn not set" });
-      const effectiveSketchPath = resolveSketchPath(sketchPath);
+      const r = resolveAgentSketchPath(sketchPath);
+      if (r.error) return asTextResult({ success: false, error: r.error });
+      const effectiveSketchPath = r.resolved;
       if (!fs.existsSync(effectiveSketchPath)) {
         return asTextResult({ success: false, error: `Sketch path not found: ${effectiveSketchPath}` });
       }
@@ -326,7 +324,9 @@ async function main() {
       if (!effectiveFqbn || !effectivePort) {
         return asTextResult({ success: false, error: "Target port/fqbn not set" });
       }
-      const effectiveSketchPath = resolveSketchPath(sketchPath);
+      const r = resolveAgentSketchPath(sketchPath);
+      if (r.error) return asTextResult({ success: false, error: r.error });
+      const effectiveSketchPath = r.resolved;
       if (!fs.existsSync(effectiveSketchPath)) {
         return asTextResult({ success: false, error: `Sketch path not found: ${effectiveSketchPath}` });
       }
@@ -364,7 +364,7 @@ async function main() {
     {
       title: "Write to serial port",
       inputSchema: z.object({
-        data: z.string(),
+        data: z.string().max(256),
       }).strict(),
     },
     async ({ data }) => {
@@ -467,7 +467,8 @@ async function main() {
   app.post("/serial/write", async (req, res) => {
     try {
       const { data } = req.body ?? {};
-      await serial.write({ data: String(data ?? "") });
+      const capped = String(data ?? "").slice(0, 256);
+      await serial.write({ data: capped });
       res.json({ ok: true });
     } catch (e) {
       res.status(400).json({ ok: false, error: e?.message ?? String(e) });
@@ -519,7 +520,7 @@ async function main() {
     _serverUploading = true;
     try {
       const result = await uploadSketch({ fqbn, port, sketchPath: effectiveSketchPath });
-      setTimeout(() => { state.uploading = false; _serverUploading = false; }, 2500);
+      setTimeout(() => { state.uploading = false; _serverUploading = false; state.portChangeVersion++; }, 2500);
       res.json({ ok: result.success, ...result });
     } catch (e) {
       state.uploading = false;
@@ -542,19 +543,24 @@ async function main() {
     res.json({ ok: true, state: "idle" });
   });
 
+  // Public MCP surface: readSkill + getState (no auth) and initialize (handshake).
+  // Everything else — tools/list, prompts/list, prompts/get, all other tool calls — requires auth.
   const PUBLIC_MCP_TOOLS = new Set(["readSkill", "getState"]);
 
   app.post("/mcp", async (req, res) => {
     const requestBody = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
+    const method   = requestBody?.method;
     const toolName = requestBody?.params?.name;
-    const isToolCall = requestBody?.method === "tools/call";
-    if (isToolCall && toolName && !PUBLIC_MCP_TOOLS.has(toolName)) {
+    const isPublic =
+      method === "initialize" ||
+      (method === "tools/call" && PUBLIC_MCP_TOOLS.has(toolName));
+    if (!isPublic) {
       const provided = req.headers["x-grease-auth"];
       if (!AUTH_KEY || provided !== AUTH_KEY) {
         return res.status(401).json({
           jsonrpc: "2.0",
           id: requestBody.id ?? null,
-          error: { code: -32001, message: `Unauthorized: '${toolName}' requires x-grease-auth header.` },
+          error: { code: -32001, message: "Unauthorized: x-grease-auth header required." },
         });
       }
     }

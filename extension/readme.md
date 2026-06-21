@@ -19,7 +19,12 @@ Arduino tooling + a bundled local MCP server for **agentic hardware debugging** 
 - Auto-selects a target if exactly one recognized board is present; otherwise prompts you to pick.
 - Adds Activity Bar actions for Verify/Upload/Serial Monitor/Serial Plotter/Examples/Managers/Board Template, to create an user friendly environment.
 
-### v1.0.6 — New Features
+### v1.0.11 — Latest Changes
+- **Upload pipeline fixed**: `dist/server.mjs` was out of sync — the bundled server was missing the `/compile` and `/upload` REST routes, causing all agent upload attempts to fail silently. Rebuilt from source.
+- **Process timeout**: `runProcess` now kills unresponsive `arduino-cli` / `bossac` processes after 30 s (SIGKILL), preventing the serial port from being locked indefinitely on SAMD boards.
+- **MCP open endpoint**: The `/mcp` endpoint no longer requires authentication. `readSkill` and `getState` are public so any agent (Claude, Gemini, GPT, Cursor, Windsurf) loads the skill file at session start regardless of whether its MCP config has a current auth key. All other tools still require `x-grease-auth`.
+
+### v1.0.6 — Previous Features
 - **Expanded Board Support**: Install boards beyond the standard Arduino lineup directly from the Managers panel. Supported platforms include Raspberry Pi Pico / RP2040, ESP8266, ESP32, STM32 (Nucleo, Blue Pill), SparkFun (AVR, SAMD, Artemis), Adafruit (AVR, SAMD, nRF52), Seeed Studio (XIAO, Wio Terminal), ATtiny, and MCUdude cores (MiniCore, MegaCore, MightyCore). Click **||Install new board||** in the Board Manager to browse and install.
 - **Serial Plotter Legend**: The plotter now shows a color legend for each data series below the graph. Click any colored label to cycle its color. Labeled serial streams (e.g. `sensor = 123, output = 456`) are parsed automatically. A **bg** button toggles the background between dark and light.
 - **Plotter Opens in New Window**: The Serial Plotter now opens directly in a detached window on the first click.
@@ -47,7 +52,7 @@ npm run build
 npx @vscode/vsce package --skip-license --allow-missing-repository
 ```
 
-2. Install the generated `arduino-grease-1.0.6.vsix` from your IDE's extension installer (VS Code/Cursor/Antigravity/Other VS-based IDEs).
+2. Install the generated `arduino-grease-1.0.11.vsix` from your IDE's extension installer (VS Code/Cursor/Antigravity/Other VS-based IDEs).
 
 ### Credits
 

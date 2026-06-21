@@ -2,9 +2,9 @@
   "name": "arduino-grease",
   "displayName": "Arduino Grease",
   "publisher": "RobotFab",
-  "version": "1.0.11",
+  "version": "1.0.12",
   "description": "Arduino tooling + MCP server for agentic debugging inside VS Code, Cursor, and Antigravity.",
-  "releaseNotes": "v1.0.9 — MCP auto-sync fix: existing IDE config entries are now refreshed whenever the server URL/port changes, not only when the auth key changes (previously a port change on restart left ~/.claude/settings.json, ~/.cursor/mcp.json, and the Windsurf config pointing at a dead port). Auth-key store relocated from ~/.grease-mcp-auth to ~/.grease/mcp-auth.json, with one-time migration from the legacy path. C++ IntelliSense: clangd (llvm-vs-code-extensions.vscode-clangd) is now an extensionDependency, so it auto-installs alongside Grease and powers hover/completion/go-to-definition on .ino files without any manual setup.",
+  "releaseNotes": "v1.0.12 — Universal VSIX: removed native binary dependencies (serialport, usb); serial I/O now runs through arduino-cli monitor. Removed clangd dependency — hover is provided by the built-in Grease hover provider. New .ino files created by AI agents are auto-opened in the editor. Panel title removed for a cleaner UI.",
   "main": "dist/extension.js",
   "icon": "icon.png",
   "scripts": {
@@ -29,9 +29,7 @@
   "activationEvents": [
     "onStartupFinished"
   ],
-  "extensionDependencies": [
-    "llvm-vs-code-extensions.vscode-clangd"
-  ],
+  "extensionDependencies": [],
   "contributes": {
     "languages": [
       {
@@ -133,10 +131,6 @@
       {
         "command": "arduinoMcp.cycleAccentColor",
         "title": "Arduino Grease: Cycle Accent Color"
-      },
-      {
-        "command": "arduinoMcp.regenerateIntelliSense",
-        "title": "Arduino Grease: Regenerate IntelliSense (clangd)"
       }
     ],
     "viewsContainers": {
@@ -152,7 +146,7 @@
       "arduinoMcp": [
         {
           "id": "arduinoMcp.toolbar",
-          "name": "Grease",
+          "name": "",
           "type": "webview",
           "icon": "resources/activity/arduino-mcp.svg"
         }
@@ -189,9 +183,7 @@
     "@modelcontextprotocol/node": "^2.0.0-alpha.2",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@modelcontextprotocol/server": "^2.0.0-alpha.2",
-    "express": "^5.2.1",
-    "serialport": "^13.0.0",
-    "usb": "^2.17.0"
+    "express": "^5.2.1"
   },
   "repository": {
     "type": "git",

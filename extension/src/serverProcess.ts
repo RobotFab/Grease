@@ -79,14 +79,23 @@ export async function startBundledServer(
 
   // Prefer the previously persisted auth key (so external AI clients don't break
   // on restart). Fall back to a fresh random one. The server itself will write
-  // whatever key it ends up using back to ~/.grease/mcp-auth.json.
+  // whatever key it ends up using back to ~/.grease/extension/mcp-auth.json.
   let authKey: string | null = null;
   try {
-    const newStore = path.join(os.homedir(), ".grease", "mcp-auth.json");
+    const newStore = path.join(os.homedir(), ".grease", "extension", "mcp-auth.json");
     const stored = JSON.parse(fs.readFileSync(newStore, "utf8"));
     authKey = stored.key || null;
   } catch {
-    /* fall through to legacy path / random key */
+    /* fall through to legacy paths / random key */
+  }
+  if (!authKey) {
+    try {
+      const v1Store = path.join(os.homedir(), ".grease", "mcp-auth.json");
+      const stored = JSON.parse(fs.readFileSync(v1Store, "utf8"));
+      authKey = stored.key || null;
+    } catch {
+      /* fall through */
+    }
   }
   if (!authKey) {
     try {
